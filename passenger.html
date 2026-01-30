@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Your Taxi</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        body { margin: 0; font-family: sans-serif; background: #eee; }
+        
+        /* Map poori screen par */
+        #map { height: 60vh; width: 100%; }
+        
+        /* Neeche ka card */
+        .info-card {
+            height: 40vh;
+            background: white;
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        h2 { margin: 0 0 10px 0; color: #333; }
+        .status { font-weight: bold; padding: 5px 10px; border-radius: 5px; display: inline-block; margin-bottom: 15px;}
+        .online { background: #d4edda; color: #155724; }
+        .offline { background: #f8d7da; color: #721c24; }
+
+        button {
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            border: none;
+            border-radius: 10px;
+            background: black;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:disabled { background: #ccc; }
+        
+        .loader { font-size: 14px; color: gray; }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+
+    <div class="info-card">
+        <h2 id="driver-name">Searching Driver...</h2>
+        <div id="driver-status" class="status offline">Connecting...</div>
+        <p id="distance-info" class="loader">Waiting for location...</p>
+        
+        <button id="book-btn" onclick="bookRide()" disabled>BOOK RIDE NOW</button>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        // Same Config as Driver App
+        const firebaseConfig = {
+            apiKey: "AIzaSyAAMshTP9HgrB27FuLNP4CZN6VJKPDW8CQ",
+            authDomain: "zayra-travels.firebaseapp.com",
+            databaseURL: "https://zayra-travels-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "zayra-travels",
+            storageBucket: "zayra-travels.firebasestorage.app",
+            messagingSenderId: "124448306082",
+            appId: "1:124448306082:web:cf5943d8592bc68b9c38fb"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // 1. URL se Driver ID nikalo (QR Code logic)
+        const urlParams = new URLSearchParams(window.location.search);
+        const driverId = urlParams.get('id'); // Example: ?id=driver001
+
+        if (!driverId) {
+            document.getElementById("driver-name").innerText = "Invalid QR Code";
+            document.getElementById("distance-info").innerText = "No Driver ID found.";
+        } else {
+            document.getElementById("driver-name").innerText = "Driver: " + driverId;
+            startTracking(driverId);
+        }
+
+        // Map Setup
+        const map = L.map('map').setView([28.6139, 77.2090], 13); // Default Delhi
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        let driverMarker = null;
+
+        function startTracking(id) {
+            const driverRef = ref(db, 'drivers/' + id);
+
+            // Real-time listener
+            onValue(driverRef, (snapshot) => {
+                const data = snapshot.val();
+                
+                if (data) {
+                    // Update Status UI
+                    const statusEl = document.getElementById("driver-status");
+                    const btn = document.getElementById("book-btn");
+
+                    if (data.status === 'online' || data.status === 'available') {
+                        statusEl.innerText = "🟢 Driver Available";
+                        statusEl.className = "status online";
+                        btn.disabled = false;
+                        btn.style.background = "black";
+                    } else {
+                        statusEl.innerText = "🔴 Driver Offline/Busy";
+                        statusEl.className = "status offline";
+                        btn.disabled = true;
+                        btn.style.background = "#ccc";
+                    }
+
+                    // Map Update
+                    if (data.latitude && data.longitude) {
+                        const newLatLng = [data.latitude, data.longitude];
+                        
+                        if (!driverMarker) {
+                            // Pehli baar marker banao (Car Icon)
+                            driverMarker = L.marker(newLatLng).addTo(map)
+                                .bindPopup("Taxi is Here!").openPopup();
+                            map.setView(newLatLng, 15); // Zoom to driver
+                        } else {
+                            // Marker ko move karo
+                            driverMarker.setLatLng(newLatLng);
+                            map.panTo(newLatLng);
+                        }
+                        document.getElementById("distance-info").innerText = "Location Updated just now";
+                    }
+                }
+            });
+        }
+
+        // Booking Function (Make accessible globally)
+        window.bookRide = function() {
+            if(!driverId) return;
+            
+            // Simple Alert for now (Backend connect baad me karenge)
+            alert("✅ Booking Request Sent to " + driverId + "!\n(Driver ke pass notification jayega)");
+            
+            // Optional: Firebase me status change kar sakte hain
+            // const driverRef = ref(db, 'drivers/' + driverId);
+            // update(driverRef, { status: "booked" });
+        }
+    </script>
+</body>
+</html>
