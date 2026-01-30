@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zayra Driver App</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            text-align: center;
+            width: 90%;
+            max-width: 400px;
+        }
+        input {
+            width: 80%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            padding: 15px 30px;
+            font-size: 18px;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            margin-top: 20px;
+            width: 100%;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+        .btn-go-online {
+            background-color: #28a745;
+            color: white;
+        }
+        .btn-go-offline {
+            background-color: #dc3545;
+            color: white;
+            display: none; /* shuru mein chupa rahega */
+        }
+        #status-text {
+            margin-top: 15px;
+            font-weight: bold;
+            color: #555;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container" id="login-screen">
+        <h2>Driver Login</h2>
+        <input type="text" id="driver-id" placeholder="Enter Driver ID (e.g., driver001)">
+        <button onclick="loginDriver()" style="background-color: #007bff; color: white;">Login</button>
+    </div>
+
+    <div class="container hidden" id="dashboard-screen">
+        <h2 id="welcome-msg">Welcome</h2>
+        <p id="status-text">Status: OFFLINE</p>
+        
+        <button id="btn-online" class="btn-go-online" onclick="goOnline()">GO ONLINE</button>
+        
+        <button id="btn-offline" class="btn-go-offline" onclick="goOffline()">GO OFFLINE</button>
+
+        <p style="font-size: 12px; color: gray; margin-top: 20px;">
+            GPS tracking will start when you go online.
+        </p>
+    </div>
+
+    <script type="module">
+        // Import Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, set, onDisconnect, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        // Your Config
+        const firebaseConfig = {
+            apiKey: "AIzaSyAAMshTP9HgrB27FuLNP4CZN6VJKPDW8CQ",
+            authDomain: "zayra-travels.firebaseapp.com",
+            databaseURL: "https://zayra-travels-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "zayra-travels",
+            storageBucket: "zayra-travels.firebasestorage.app",
+            messagingSenderId: "124448306082",
+            appId: "1:124448306082:web:cf5943d8592bc68b9c38fb"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        let driverId = "";
+        let watchId = null; // GPS tracker ID
+
+        // Global functions ko window object se jodna padega kyuki ye module script hai
+        window.loginDriver = function() {
+            const inputId = document.getElementById("driver-id").value;
+            if(inputId.trim() === "") {
+                alert("Please enter a Driver ID");
+                return;
+            }
+            driverId = inputId.trim();
+            
+            // Screen Change karo
+            document.getElementById("login-screen").classList.add("hidden");
+            document.getElementById("dashboard-screen").classList.remove("hidden");
+            document.getElementById("welcome-msg").innerText = "Welcome, " + driverId;
+        }
+
+        window.goOnline = function() {
+            if (!navigator.geolocation) {
+                alert("Geolocation is not supported by your browser");
+                return;
+            }
+
+            // UI Update
+            document.getElementById("btn-online").style.display = "none";
+            document.getElementById("btn-offline").style.display = "block";
+            document.getElementById("status-text").innerText = "Status: 🟢 ONLINE (Tracking...)";
+            document.getElementById("status-text").style.color = "green";
+
+            // 1. Firebase Reference set karo
+            const driverRef = ref(db, 'drivers/' + driverId);
+
+            // 2. GPS Track karna shuru karo
+            watchId = navigator.geolocation.watchPosition((position) => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+
+                // 3. Data Firebase me bhejo
+                update(driverRef, {
+                    status: "available",
+                    latitude: lat,
+                    longitude: lng,
+                    lastUpdated: Date.now()
+                });
+
+            }, (error) => {
+                console.error("Error getting location:", error);
+                alert("Please enable GPS!");
+            }, {
+                enableHighAccuracy: true
+            });
+
+            // 4. Magic Feature: Agar driver ka internet chala jaye ya wo tab band kar de
+            // toh Firebase khud usko 'offline' kar dega.
+            onDisconnect(driverRef).update({
+                status: "offline"
+            });
+        }
+
+        window.goOffline = function() {
+            // GPS band karo
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+
+            // UI Update
+            document.getElementById("btn-online").style.display = "block";
+            document.getElementById("btn-offline").style.display = "none";
+            document.getElementById("status-text").innerText = "Status: 🔴 OFFLINE";
+            document.getElementById("status-text").style.color = "red";
+
+            // Firebase update
+            const driverRef = ref(db, 'drivers/' + driverId);
+            update(driverRef, {
+                status: "offline"
+            });
+        }
+    </script>
+</body>
+</html>
