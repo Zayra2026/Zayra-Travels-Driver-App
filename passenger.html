@@ -3,202 +3,294 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Zayra Cabs</title>
+    <title>Zayra - Rapido Style Ultimate</title>
     
+    <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-routing-machine/3.2.12/leaflet-routing-machine.min.js"></script>
 
     <style>
-        /* RAPIDO STYLE OVERRIDES */
-        body { font-family: sans-serif; overflow: hidden; background: #fff; }
+        /* --- CORE STYLES --- */
+        body { font-family: 'Inter', sans-serif; background: #fff; overflow: hidden; touch-action: none; }
         
-        /* Smooth Sheet Animation */
+        /* Smooth Bottom Sheet Transitions */
         .sheet {
-            transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
-            transform: translateY(110%);
+            position: fixed; bottom: 0; left: 0; width: 100%; background: white;
+            border-top-left-radius: 24px; border-top-right-radius: 24px;
+            box-shadow: 0 -10px 40px rgba(0,0,0,0.15); z-index: 2000;
+            transform: translateY(110%); transition: transform 0.4s cubic-bezier(0.1, 0.9, 0.2, 1);
+            max-height: 85vh; display: flex; flex-col;
         }
-        .sheet.open { transform: translateY(0); }
+        .sheet.active { transform: translateY(0); }
 
+        /* Map Tweaks */
+        #map { height: 100vh; width: 100%; z-index: 0; }
+        .leaflet-control-attribution, .leaflet-routing-container { display: none !important; }
+        
         /* Custom Scrollbar */
         .hide-scroll::-webkit-scrollbar { display: none; }
-
-        /* Map Fixes */
-        #map { height: 100vh; width: 100%; z-index: 0; }
-        .leaflet-control-attribution { display: none; }
         
+        /* Pulsing User Marker */
+        .pulse-ring {
+            border: 3px solid #3B82F6; border-radius: 50%; height: 18px; width: 18px;
+            position: absolute; left: -9px; top: -9px;
+            animation: pulsate 1.5s ease-out; animation-iteration-count: infinite; 
+            opacity: 0.0; box-shadow: 0 0 1px 2px #3B82F6;
+        }
+        @keyframes pulsate {
+            0% {-webkit-transform: scale(0.1, 0.1); opacity: 0.0;}
+            50% {opacity: 1.0;}
+            100% {-webkit-transform: scale(1.2, 1.2); opacity: 0.0;}
+        }
+
         /* Loader */
-        .loader {
-            border: 3px solid #f3f3f3; border-top: 3px solid #F1C40F;
-            border-radius: 50%; width: 20px; height: 20px;
-            animation: spin 1s linear infinite; display: none;
+        .spinner {
+            width: 24px; height: 24px; border: 3px solid #f3f3f3; 
+            border-top: 3px solid #F1C40F; border-radius: 50%; 
+            animation: spin 1s linear infinite;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Center Map Marker (Target) */
+        .center-target {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            z-index: 1000; pointer-events: none; display: none;
+        }
     </style>
 </head>
-<body class="bg-gray-50">
+<body class="bg-gray-100">
+
+    <div id="login-ui" class="fixed inset-0 bg-white z-[5000] p-6 flex flex-col justify-center hidden">
+        <div class="mb-8 text-center">
+            <img src="https://cdn-icons-png.flaticon.com/512/3082/3082383.png" class="w-24 mx-auto mb-4">
+            <h1 class="text-3xl font-extrabold">Zayra Travels</h1>
+            <p class="text-gray-500">Secure & Fast Rides</p>
+        </div>
+        <div class="space-y-4">
+            <input type="text" id="u-name" placeholder="Full Name" class="w-full bg-gray-100 p-4 rounded-xl font-bold outline-none focus:ring-2 focus:ring-yellow-400">
+            <input type="tel" id="u-phone" placeholder="Mobile Number" class="w-full bg-gray-100 p-4 rounded-xl font-bold outline-none focus:ring-2 focus:ring-yellow-400">
+            <button onclick="authUser()" class="w-full bg-yellow-400 p-4 rounded-xl font-bold text-lg shadow-lg">Login</button>
+        </div>
+    </div>
 
     <div id="map"></div>
-
-    <div id="login-modal" class="fixed inset-0 bg-white z-[3000] flex flex-col justify-center p-6 hidden">
-        <h1 class="text-3xl font-extrabold mb-2">Let's get started</h1>
-        <p class="text-gray-500 mb-8">Enter your details to create an account</p>
-        
-        <label class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Full Name</label>
-        <input type="text" id="u-name" class="w-full bg-gray-100 p-4 rounded-lg font-bold mb-4 outline-none border-2 border-transparent focus:border-black" placeholder="Your Name">
-        
-        <label class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Phone Number</label>
-        <input type="tel" id="u-phone" class="w-full bg-gray-100 p-4 rounded-lg font-bold mb-8 outline-none border-2 border-transparent focus:border-black" placeholder="+91 99999 99999">
-        
-        <button onclick="saveUser()" class="w-full bg-yellow-400 text-black p-4 rounded-lg font-bold text-lg shadow-lg">Continue</button>
+    <div id="map-target" class="center-target">
+        <img src="https://cdn-icons-png.flaticon.com/512/447/447031.png" width="40" class="drop-shadow-xl">
+        <div class="bg-black text-white text-xs px-2 py-1 rounded mt-1 text-center">Drop Here</div>
     </div>
 
-    <div id="home-search" class="absolute top-10 left-4 right-4 bg-white rounded-xl shadow-xl p-4 z-[1000] flex items-center gap-3 cursor-pointer transition-all" onclick="openSearch()">
-        <div class="w-3 h-3 bg-green-500 rounded-full"></div>
-        <div class="flex-1">
-            <div class="text-xs text-green-600 font-bold">Your Current Location</div>
-            <div class="text-sm font-bold text-gray-400">Where are you going?</div>
+    <div id="sidebar" class="fixed inset-y-0 left-0 w-[75%] bg-white z-[3000] shadow-2xl transform -translate-x-full transition-transform duration-300 p-6">
+        <div class="flex items-center gap-4 mb-8 pb-4 border-b">
+            <div class="w-14 h-14 bg-gray-200 rounded-full flex items-center justify-center text-2xl">👤</div>
+            <div>
+                <h2 class="font-bold text-lg" id="profile-name">Guest</h2>
+                <p class="text-sm text-gray-500" id="profile-phone">+91 --</p>
+            </div>
         </div>
-        <i class="ri-search-line text-xl text-gray-400"></i>
+        <div class="space-y-6 text-gray-700 font-medium">
+            <div class="flex items-center gap-3"><i class="ri-history-line text-xl"></i> Your Rides</div>
+            <div class="flex items-center gap-3"><i class="ri-coupon-2-line text-xl"></i> Offers</div>
+            <div class="flex items-center gap-3"><i class="ri-shield-star-line text-xl"></i> Safety</div>
+            <div class="flex items-center gap-3"><i class="ri-settings-4-line text-xl"></i> Settings</div>
+        </div>
+        <button onclick="toggleSidebar()" class="absolute bottom-6 left-6 text-red-500 font-bold flex items-center gap-2">
+            <i class="ri-logout-box-r-line"></i> Close Menu
+        </button>
+    </div>
+    <div id="sidebar-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 z-[2999] hidden"></div>
+
+    <div id="ui-home" class="absolute top-4 left-4 right-4 z-[1000]">
+        <div class="flex justify-between items-center mb-4">
+            <button onclick="toggleSidebar()" class="bg-white p-3 rounded-full shadow-md"><i class="ri-menu-2-line text-xl"></i></button>
+            <div class="bg-white px-3 py-1 rounded-full shadow-md text-xs font-bold text-green-600 flex items-center gap-1">
+                <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div> Online
+            </div>
+        </div>
+        
+        <div onclick="openSearchMode()" class="bg-white rounded-xl shadow-lg p-4 flex items-center gap-3 transition-transform active:scale-95">
+            <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+            <div class="flex-1">
+                <div class="text-[10px] font-bold text-green-600 uppercase">Current Location</div>
+                <div class="text-gray-400 font-bold text-lg">Where to?</div>
+            </div>
+            <i class="ri-search-2-line text-2xl text-gray-400"></i>
+        </div>
     </div>
 
-    <div id="search-ui" class="fixed inset-0 bg-white z-[2000] hidden flex flex-col">
-        <div class="p-4 shadow-sm bg-white relative z-10">
+    <div id="ui-search" class="fixed inset-0 bg-white z-[2500] flex flex-col hidden">
+        <div class="p-4 shadow-sm z-10 bg-white">
             <div class="flex items-center mb-6">
-                <i class="ri-arrow-left-line text-2xl mr-4 cursor-pointer" onclick="closeSearch()"></i>
-                <h2 class="font-bold text-xl">Select Location</h2>
+                <i class="ri-arrow-left-line text-2xl mr-4" onclick="closeSearchMode()"></i>
+                <h2 class="font-bold text-xl">Select Destination</h2>
             </div>
-            
-            <div class="relative">
-                <div class="absolute left-[14px] top-8 bottom-8 border-l-2 border-dashed border-gray-300"></div>
-                
+            <div class="relative pl-6">
+                <div class="absolute left-[11px] top-8 bottom-8 border-l-2 border-dashed border-gray-300"></div>
                 <div class="flex items-center gap-4 mb-4">
-                    <div class="w-2 h-2 rounded-full bg-green-500 ring-4 ring-green-100"></div>
-                    <input type="text" id="pickup-in" class="flex-1 bg-gray-100 p-3 rounded-lg text-sm font-bold text-gray-500 outline-none" value="Detecting location..." readonly>
+                    <div class="w-3 h-3 bg-green-500 rounded-full ring-4 ring-green-100"></div>
+                    <input type="text" id="pickup-display" class="flex-1 bg-gray-50 p-3 rounded-lg text-sm font-bold text-gray-500" value="Detecting..." readonly>
+                    <i class="ri-lock-2-line text-gray-400"></i>
                 </div>
-                
                 <div class="flex items-center gap-4">
-                    <div class="w-2 h-2 rounded-full bg-orange-500 ring-4 ring-orange-100"></div>
-                    <div class="flex-1 relative">
-                        <input type="text" id="drop-in" class="w-full bg-gray-100 p-3 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-black" placeholder="Search destination (e.g. Vegas Mall)" oninput="searchLocation(this.value)">
-                        <div id="search-loader" class="loader absolute right-3 top-3"></div>
-                    </div>
+                    <div class="w-3 h-3 bg-red-500 rounded-full ring-4 ring-red-100"></div>
+                    <input type="text" id="drop-search" class="flex-1 bg-gray-100 p-3 rounded-lg text-sm font-bold focus:ring-2 focus:ring-black outline-none" placeholder="Search Place (e.g. Vegas Mall)" oninput="handleSearch(this.value)">
+                    <div id="search-spinner" class="spinner hidden"></div>
                 </div>
             </div>
             
-            <div class="flex gap-2 mt-4 overflow-x-auto hide-scroll">
-                <button class="px-4 py-2 bg-white border border-gray-300 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1">
+            <div class="flex gap-3 mt-4 overflow-x-auto">
+                <button onclick="enableMapSelect()" class="px-4 py-2 border rounded-full text-xs font-bold flex items-center gap-1 whitespace-nowrap">
                     <i class="ri-map-pin-user-line"></i> Select on Map
                 </button>
-                <button class="px-4 py-2 bg-white border border-gray-300 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1">
-                    <i class="ri-add-circle-line"></i> Add Stop
+                <button class="px-4 py-2 border rounded-full text-xs font-bold flex items-center gap-1 whitespace-nowrap">
+                    <i class="ri-history-line"></i> Recent
                 </button>
             </div>
         </div>
-
-        <div id="results-list" class="flex-1 overflow-y-auto bg-gray-50 p-2 space-y-2">
-            </div>
+        <div id="search-results" class="flex-1 overflow-y-auto bg-gray-50 p-2 space-y-2"></div>
+        
+        <div id="map-confirm-btn" class="absolute bottom-6 left-6 right-6 hidden">
+            <button onclick="confirmMapSelection()" class="w-full bg-black text-white py-4 rounded-xl font-bold shadow-xl">Confirm Location</button>
+        </div>
     </div>
 
-    <div id="vehicle-sheet" class="sheet fixed bottom-0 left-0 w-full bg-white rounded-t-3xl shadow-[0_-5px_20px_rgba(0,0,0,0.1)] z-[1500] max-h-[80vh] overflow-y-auto">
-        
-        <div class="w-12 h-1 bg-gray-200 rounded-full mx-auto mt-3 mb-6"></div>
-        
-        <div class="px-6 pb-24">
+    <div id="sheet-booking" class="sheet">
+        <div class="w-12 h-1 bg-gray-200 rounded-full mx-auto mt-3 mb-4"></div>
+        <div class="px-6 flex-1 overflow-y-auto pb-32">
+            
+            <div id="qr-info-banner" class="hidden mb-4 bg-yellow-50 border border-yellow-200 p-3 rounded-lg flex items-center gap-3">
+                <i class="ri-qr-scan-2-line text-yellow-700"></i>
+                <div class="text-xs text-yellow-800">
+                    <strong>Smart Match:</strong> Vehicle detected from QR Code.
+                </div>
+            </div>
+
             <div class="flex justify-between items-end mb-6">
                 <div>
-                    <h2 class="text-3xl font-extrabold" id="v-price">₹0</h2>
-                    <p class="text-xs text-gray-500">Total distance: <span id="v-dist">0 km</span></p>
+                    <h2 class="text-3xl font-extrabold" id="total-fare">₹0</h2>
+                    <p class="text-xs text-gray-500">Est. Distance: <span id="total-dist">0 km</span></p>
                 </div>
-                <div class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">
-                    <i class="ri-discount-percent-fill"></i> Coupon Applied
+                <div class="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-bold">
+                    <i class="ri-coupon-3-fill"></i> ZAYRA20
                 </div>
             </div>
 
             <div class="space-y-3">
-                <div onclick="selectRide('auto')" class="ride-opt border-2 border-transparent p-4 rounded-xl bg-gray-50 flex items-center justify-between cursor-pointer hover:border-black hover:bg-yellow-50 transition-all">
+                <div onclick="selectVehicle('auto')" id="opt-auto" class="ride-card border-2 border-black bg-yellow-50 p-4 rounded-xl flex justify-between items-center cursor-pointer transition-all">
                     <div class="flex items-center gap-4">
                         <img src="https://cdn-icons-png.flaticon.com/512/2555/2555013.png" class="w-12">
                         <div>
-                            <div class="font-bold text-gray-800">Auto</div>
-                            <div class="text-xs text-gray-500">3 min away • 3 seats</div>
+                            <div class="font-bold">Auto</div>
+                            <div class="text-xs text-gray-500">3 min • 3 Seats</div>
                         </div>
                     </div>
-                    <div class="font-bold text-lg">₹<span id="cost-auto">0</span></div>
+                    <div class="font-bold text-lg">₹<span id="price-auto">0</span></div>
                 </div>
 
-                <div onclick="selectRide('bike')" class="ride-opt border-2 border-transparent p-4 rounded-xl bg-gray-50 flex items-center justify-between cursor-pointer hover:border-black hover:bg-yellow-50 transition-all">
+                <div onclick="selectVehicle('bike')" id="opt-bike" class="ride-card border-2 border-transparent p-4 rounded-xl flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-all">
                     <div class="flex items-center gap-4">
                         <img src="https://cdn-icons-png.flaticon.com/512/3082/3082383.png" class="w-12">
                         <div>
-                            <div class="font-bold text-gray-800">Bike</div>
-                            <div class="text-xs text-gray-500">1 min away • 1 seat</div>
+                            <div class="font-bold">Bike</div>
+                            <div class="text-xs text-gray-500">1 min • 1 Seat</div>
                         </div>
                     </div>
-                    <div class="font-bold text-lg">₹<span id="cost-bike">0</span></div>
+                    <div class="font-bold text-lg">₹<span id="price-bike">0</span></div>
                 </div>
-                
-                <div onclick="selectRide('cab')" class="ride-opt border-2 border-transparent p-4 rounded-xl bg-gray-50 flex items-center justify-between cursor-pointer hover:border-black hover:bg-yellow-50 transition-all">
-                    <div class="flex items-center gap-4">
-                        <img src="https://cdn-icons-png.flaticon.com/512/2554/2554936.png" class="w-12">
-                        <div>
-                            <div class="font-bold text-gray-800">Cab Economy</div>
-                            <div class="text-xs text-gray-500">5 min away • AC</div>
-                        </div>
-                    </div>
-                    <div class="font-bold text-lg">₹<span id="cost-cab">0</span></div>
+            </div>
+
+            <div class="mt-6 p-4 bg-gray-50 rounded-xl">
+                <div class="flex justify-between text-xs font-bold mb-2">
+                    <span>Economy</span>
+                    <span class="text-green-600">⚡ Priority (+₹50)</span>
                 </div>
+                <input type="range" min="0" max="50" step="10" value="0" class="w-full accent-black" oninput="updateFare(this.value)">
+                <p class="text-[10px] text-gray-400 mt-2 text-center">Increase fare to get faster pickup</p>
+            </div>
+            
+            <div class="mt-4 bg-gradient-to-r from-purple-100 to-pink-100 p-3 rounded-lg flex items-center gap-3">
+                <div class="bg-white p-1 rounded"><i class="ri-advertisement-fill text-purple-500"></i></div>
+                <div class="text-xs font-bold text-purple-900">Watch Ad & Save ₹10 on this ride!</div>
             </div>
         </div>
 
-        <div class="fixed bottom-0 left-0 w-full p-4 bg-white border-t border-gray-100">
-            <div class="flex gap-4 mb-3 px-2">
-                <div class="flex-1 flex items-center gap-2 cursor-pointer">
-                    <i class="ri-money-rupee-circle-fill text-xl text-green-600"></i>
-                    <span class="text-sm font-bold">Cash</span>
-                    <i class="ri-arrow-down-s-line text-gray-400"></i>
-                </div>
-                <div class="flex-1 flex items-center justify-end gap-2 cursor-pointer">
-                    <i class="ri-ticket-2-fill text-xl text-blue-600"></i>
-                    <span class="text-sm font-bold">Offers</span>
-                </div>
+        <div class="fixed bottom-0 w-full p-4 bg-white border-t z-20">
+            <div class="flex items-center justify-between mb-3 px-2">
+                <div class="flex items-center gap-2 text-sm font-bold"><i class="ri-money-rupee-circle-line text-green-600 text-xl"></i> Cash</div>
+                <div class="flex items-center gap-2 text-sm font-bold"><i class="ri-coupon-line text-blue-600 text-xl"></i> Offers</div>
             </div>
-            <button onclick="bookNow()" class="w-full bg-yellow-400 text-black py-4 rounded-xl font-bold text-lg shadow-lg">Book Ride</button>
+            <button onclick="bookRide()" class="w-full bg-yellow-400 text-black py-4 rounded-xl font-bold text-lg shadow-lg">Book Ride</button>
         </div>
     </div>
 
-    <div id="status-sheet" class="sheet fixed bottom-0 left-0 w-full bg-white rounded-t-3xl shadow-[0_-5px_20px_rgba(0,0,0,0.1)] z-[1600] p-6 text-center">
-        <div class="loader mx-auto mb-4" style="display:block"></div>
-        <h2 class="text-xl font-bold mb-1">Connecting to Driver...</h2>
-        <p class="text-sm text-gray-500 mb-6">Please wait while we send your request</p>
-        
-        <div id="driver-details" class="hidden text-left bg-gray-50 p-4 rounded-xl border border-gray-200">
-            <div class="flex items-center gap-3 mb-3">
-                <img src="https://randomuser.me/api/portraits/men/32.jpg" class="w-12 h-12 rounded-full border-2 border-yellow-400">
-                <div>
-                    <div class="font-bold text-lg">Raju Kumar</div>
-                    <div class="text-xs text-gray-500">⭐ 4.8 • 1200+ Rides</div>
-                </div>
-                <div class="ml-auto text-right">
-                    <div class="font-bold text-xl text-gray-800">DL 1R 5555</div>
-                    <div class="text-xs text-gray-500">White Dzire</div>
-                </div>
+    <div id="sheet-ride" class="sheet p-6">
+        <div class="flex justify-between items-start mb-6">
+            <div>
+                <h2 class="text-lg font-bold text-green-600 mb-1">Arriving in 4 mins</h2>
+                <p class="text-xs text-gray-500">Driver is on the way to pickup</p>
             </div>
-            <div class="flex gap-2">
-                <button class="flex-1 bg-green-100 text-green-700 py-2 rounded-lg font-bold text-sm"><i class="ri-phone-fill"></i> Call</button>
-                <button class="flex-1 bg-blue-100 text-blue-700 py-2 rounded-lg font-bold text-sm"><i class="ri-message-3-fill"></i> Chat</button>
+            <div class="bg-black text-white px-3 py-1 rounded-lg text-xl font-bold tracking-widest" id="otp-disp">
+                ----
             </div>
         </div>
 
-        <button onclick="cancelRide()" class="mt-6 text-red-500 font-bold text-sm">Cancel Request</button>
+        <div class="flex items-center gap-4 bg-gray-50 p-4 rounded-xl border mb-6">
+            <div class="relative">
+                <img src="https://randomuser.me/api/portraits/men/11.jpg" class="w-14 h-14 rounded-full border-2 border-yellow-400">
+                <div class="absolute -bottom-1 -right-1 bg-white text-xs font-bold px-1 rounded shadow">4.8⭐</div>
+            </div>
+            <div class="flex-1">
+                <div class="font-bold text-lg">Rajesh Kumar</div>
+                <div class="text-xs text-gray-500">White Bajaj Auto • DL 1R 4202</div>
+            </div>
+            <a href="tel:100" class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-700">
+                <i class="ri-phone-fill"></i>
+            </a>
+        </div>
+
+        <div class="grid grid-cols-4 gap-2 mb-6">
+            <button onclick="shareLoc()" class="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-50">
+                <div class="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center"><i class="ri-whatsapp-line"></i></div>
+                <span class="text-[10px] font-bold">Share</span>
+            </button>
+            <button class="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-50">
+                <div class="w-10 h-10 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center"><i class="ri-message-3-line"></i></div>
+                <span class="text-[10px] font-bold">Chat</span>
+            </button>
+            <button onclick="triggerSOS()" class="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-50">
+                <div class="w-10 h-10 bg-red-100 text-red-600 rounded-full flex items-center justify-center"><i class="ri-alarm-warning-line"></i></div>
+                <span class="text-[10px] font-bold">SOS</span>
+            </button>
+            <button onclick="openCancelModal()" class="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-50">
+                <div class="w-10 h-10 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center"><i class="ri-close-circle-line"></i></div>
+                <span class="text-[10px] font-bold">Cancel</span>
+            </button>
+        </div>
+
+        <div class="flex gap-2 overflow-x-auto pb-2">
+            <div class="px-3 py-1 bg-gray-100 rounded-full text-xs whitespace-nowrap">I'm waiting at pickup 📍</div>
+            <div class="px-3 py-1 bg-gray-100 rounded-full text-xs whitespace-nowrap">Coming in 2 mins ⏱️</div>
+        </div>
     </div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <div id="modal-cancel" class="fixed inset-0 bg-black/60 z-[6000] hidden flex flex-col justify-end">
+        <div class="bg-white rounded-t-3xl p-6 animate-slide-up">
+            <h3 class="font-bold text-lg mb-4">Why are you cancelling?</h3>
+            <div class="space-y-0">
+                <div onclick="confirmCancel('Plan Changed')" class="p-4 border-b hover:bg-gray-50 cursor-pointer flex justify-between">Change of plans <i class="ri-arrow-right-s-line text-gray-400"></i></div>
+                <div onclick="confirmCancel('Driver Delayed')" class="p-4 border-b hover:bg-gray-50 cursor-pointer flex justify-between">Driver is too far <i class="ri-arrow-right-s-line text-gray-400"></i></div>
+                <div onclick="confirmCancel('Price Issue')" class="p-4 border-b hover:bg-gray-50 cursor-pointer flex justify-between">Price is too high <i class="ri-arrow-right-s-line text-gray-400"></i></div>
+            </div>
+            <button onclick="closeCancelModal()" class="w-full mt-4 py-3 font-bold text-gray-500">Don't Cancel</button>
+        </div>
+    </div>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, set, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getDatabase, ref, push, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-        // CONFIG
+        // --- 1. CONFIGURATION ---
         const firebaseConfig = {
             apiKey: "AIzaSyAAMshTP9HgrB27FuLNP4CZN6VJKPDW8CQ",
             authDomain: "zayra-travels.firebaseapp.com",
@@ -211,198 +303,298 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // STATE
-        let map, userMarker, routeLine;
-        let myLoc = { lat: 28.61, lng: 77.20 };
+        // --- 2. GLOBAL STATE ---
+        let map, userMarker, routeControl;
+        let myLoc = { lat: 28.6139, lng: 77.2090 }; // Default Delhi
         let dropLoc = null;
         let selectedVehicle = 'auto';
+        let baseFare = 0;
         let currentRideId = null;
+        let mapSelectMode = false;
+        let userProfile = JSON.parse(localStorage.getItem('zayraUser'));
 
-        // 1. INIT
+        // --- 3. INITIALIZATION ---
         window.onload = () => {
-            const user = localStorage.getItem('zayra_user');
-            if(!user) {
-                document.getElementById('login-modal').classList.remove('hidden');
+            if(!userProfile) {
+                document.getElementById('login-ui').classList.remove('hidden');
             } else {
+                updateSidebar();
                 initMap();
+                checkQRContext();
             }
         };
 
-        window.saveUser = () => {
+        window.authUser = () => {
             const name = document.getElementById('u-name').value;
             const phone = document.getElementById('u-phone').value;
-            if(!name || !phone) return alert("Fill all details");
-            localStorage.setItem('zayra_user', JSON.stringify({ name, phone }));
-            document.getElementById('login-modal').classList.add('hidden');
+            if(!name || !phone) return alert("Enter details!");
+            
+            userProfile = { name, phone, id: 'u_'+Date.now() };
+            localStorage.setItem('zayraUser', JSON.stringify(userProfile));
+            set(ref(db, 'users/' + userProfile.id), userProfile);
+            
+            document.getElementById('login-ui').classList.add('hidden');
+            updateSidebar();
             initMap();
+        };
+
+        function updateSidebar() {
+            document.getElementById('profile-name').innerText = userProfile.name;
+            document.getElementById('profile-phone').innerText = userProfile.phone;
         }
 
-        // 2. MAP & GPS
+        // --- 4. MAP ENGINE (CartoDB Tiles for Google Look) ---
         function initMap() {
             map = L.map('map', { zoomControl: false }).setView([myLoc.lat, myLoc.lng], 14);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '' }).addTo(map);
+            
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                attribution: '', maxZoom: 19
+            }).addTo(map);
 
+            // Locate User
             if(navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(pos => {
                     myLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
                     map.setView(myLoc, 16);
                     
-                    // User Marker (Pulse Effect)
+                    // Custom Pulsing Dot
                     const icon = L.divIcon({
-                        className: 'custom-pin',
-                        html: `<div style="width:15px;height:15px;background:#3B82F6;border-radius:50%;border:3px solid white;box-shadow:0 0 10px rgba(59,130,246,0.5);"></div>`
+                        className: 'user-pin',
+                        html: '<div class="pulse-ring"></div><div style="width:12px;height:12px;background:#3B82F6;border-radius:50%;border:2px solid white;"></div>'
                     });
                     userMarker = L.marker(myLoc, {icon: icon}).addTo(map);
-
-                    // Reverse Geocode (Get Name)
-                    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${myLoc.lat}&lon=${myLoc.lng}`)
-                    .then(r => r.json()).then(d => {
-                        document.getElementById('pickup-in').value = d.display_name.split(',')[0];
-                    });
+                    
+                    // Reverse Geocode Pickup
+                    fetchName(myLoc.lat, myLoc.lng, 'pickup-display');
                 });
             }
-        }
 
-        // 3. SEARCH LOGIC (FIXED: Using Direct API)
-        let debounce;
-        window.openSearch = () => {
-            document.getElementById('search-ui').classList.remove('hidden');
-            document.getElementById('drop-in').focus();
-        }
-        window.closeSearch = () => document.getElementById('search-ui').classList.add('hidden');
-
-        window.searchLocation = (query) => {
-            clearTimeout(debounce);
-            if(query.length < 3) return;
-            
-            document.getElementById('search-loader').style.display = 'block';
-
-            debounce = setTimeout(() => {
-                // FORCE SEARCH INDIA
-                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&countrycodes=in&limit=5`)
-                .then(res => res.json())
-                .then(data => {
-                    document.getElementById('search-loader').style.display = 'none';
-                    const list = document.getElementById('results-list');
-                    list.innerHTML = ""; // Clear old
-
-                    if(data.length === 0) {
-                        list.innerHTML = `<div class="p-4 text-center text-gray-400">No results found</div>`;
-                        return;
-                    }
-
-                    data.forEach(place => {
-                        const item = document.createElement('div');
-                        item.className = "flex items-center gap-3 p-4 border-b border-gray-100 bg-white cursor-pointer hover:bg-gray-50";
-                        item.innerHTML = `
-                            <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
-                                <i class="ri-map-pin-line"></i>
-                            </div>
-                            <div>
-                                <div class="font-bold text-sm text-gray-800">${place.display_name.split(',')[0]}</div>
-                                <div class="text-xs text-gray-400 truncate w-64">${place.display_name}</div>
-                            </div>
-                        `;
-                        item.onclick = () => selectDrop(place);
-                        list.appendChild(item);
-                    });
-                })
-                .catch(err => {
-                    console.error(err);
-                    document.getElementById('search-loader').style.display = 'none';
-                });
-            }, 500);
-        }
-
-        function selectDrop(place) {
-            dropLoc = { lat: parseFloat(place.lat), lng: parseFloat(place.lon) };
-            
-            // UI Updates
-            closeSearch();
-            document.getElementById('home-search').classList.add('hidden'); // Hide floating bar
-            document.getElementById('vehicle-sheet').classList.add('open');
-            
-            // Draw Route (Simple Line)
-            if(routeLine) map.removeLayer(routeLine);
-            routeLine = L.polyline([myLoc, dropLoc], {color: 'black', weight: 4}).addTo(map);
-            map.fitBounds(routeLine.getBounds(), {padding: [50, 50]});
-            
-            // Add Drop Marker
-            L.marker(dropLoc, {icon: L.icon({
-                iconUrl: 'https://cdn-icons-png.flaticon.com/512/3082/3082383.png', // Flag icon needed
-                iconSize: [0,0] // Hidden for now, line is enough
-            })}).addTo(map);
-
-            calculateFare();
-        }
-
-        // 4. FARE CALCULATION
-        function calculateFare() {
-            // Haversine Distance
-            const R = 6371; 
-            const dLat = (dropLoc.lat - myLoc.lat) * Math.PI/180;
-            const dLon = (dropLoc.lng - myLoc.lng) * Math.PI/180;
-            const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(myLoc.lat*Math.PI/180)*Math.cos(dropLoc.lat*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
-            const dist = (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))).toFixed(1);
-            
-            document.getElementById('v-dist').innerText = dist + " km";
-            
-            // Prices
-            document.getElementById('cost-bike').innerText = Math.round(25 + (dist * 8));
-            document.getElementById('cost-auto').innerText = Math.round(40 + (dist * 12));
-            document.getElementById('cost-cab').innerText = Math.round(60 + (dist * 15));
-            
-            // Default Auto
-            document.getElementById('v-price').innerText = "₹" + Math.round(40 + (dist * 12));
-        }
-
-        // 5. BOOKING
-        window.selectRide = (type) => {
-            selectedVehicle = type;
-            const price = document.getElementById('cost-'+type).innerText;
-            document.getElementById('v-price').innerText = "₹" + price;
-            
-            // Highlight styling
-            document.querySelectorAll('.ride-opt').forEach(el => el.classList.remove('border-black', 'bg-yellow-50'));
-            event.currentTarget.classList.add('border-black', 'bg-yellow-50');
-        }
-
-        window.bookNow = () => {
-            document.getElementById('vehicle-sheet').classList.remove('open');
-            document.getElementById('status-sheet').classList.add('open');
-            
-            const user = JSON.parse(localStorage.getItem('zayra_user'));
-            
-            const newRide = push(ref(db, 'rides'));
-            currentRideId = newRide.key;
-            
-            set(newRide, {
-                passenger: user,
-                pickup: myLoc,
-                drop: dropLoc,
-                vehicle: selectedVehicle,
-                status: 'pending',
-                timestamp: Date.now()
-            });
-
-            // Listen for Driver Accept
-            onValue(ref(db, 'rides/' + currentRideId), (snap) => {
-                const data = snap.val();
-                if(data && data.status === 'accepted') {
-                    document.querySelector('#status-sheet h2').innerText = "Driver Arriving!";
-                    document.querySelector('#status-sheet p').innerText = "Meet at pickup point";
-                    document.querySelector('.loader').style.display = 'none';
-                    document.getElementById('driver-details').classList.remove('hidden');
+            // Map Drag Listener for "Select on Map"
+            map.on('moveend', () => {
+                if(mapSelectMode) {
+                    const center = map.getCenter();
+                    fetchName(center.lat, center.lng, 'drop-search');
                 }
             });
         }
 
-        window.cancelRide = () => {
-            if(confirm("Cancel ride?")) {
-                if(currentRideId) remove(ref(db, 'rides/' + currentRideId));
-                location.reload();
+        async function fetchName(lat, lng, elementId) {
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+                const data = await res.json();
+                document.getElementById(elementId).value = data.display_name.split(',')[0];
+                if(elementId === 'drop-search') dropLoc = { lat, lng };
+            } catch(e) { console.log("Geo error"); }
+        }
+
+        // --- 5. SEARCH & ROUTING (The Fixed Logic) ---
+        window.openSearchMode = () => {
+            document.getElementById('ui-search').classList.remove('hidden');
+            document.getElementById('drop-search').focus();
+        };
+
+        window.closeSearchMode = () => {
+            document.getElementById('ui-search').classList.add('hidden');
+            mapSelectMode = false;
+            document.getElementById('map-target').style.display = 'none';
+            document.getElementById('map-confirm-btn').style.display = 'none';
+        };
+
+        let debounce;
+        window.handleSearch = (query) => {
+            clearTimeout(debounce);
+            if(query.length < 3) return;
+            document.getElementById('search-spinner').style.display = 'block';
+            
+            debounce = setTimeout(async () => {
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&countrycodes=in&limit=5`);
+                const data = await res.json();
+                document.getElementById('search-spinner').style.display = 'none';
+                
+                const list = document.getElementById('search-results');
+                list.innerHTML = "";
+                
+                data.forEach(place => {
+                    const div = document.createElement('div');
+                    div.className = "flex items-center gap-3 p-4 bg-white border-b cursor-pointer hover:bg-gray-50";
+                    div.innerHTML = `
+                        <div class="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-500"><i class="ri-map-pin-line"></i></div>
+                        <div>
+                            <div class="font-bold text-sm text-gray-800">${place.display_name.split(',')[0]}</div>
+                            <div class="text-xs text-gray-400 truncate w-60">${place.display_name}</div>
+                        </div>
+                    `;
+                    div.onclick = () => selectDropLocation({ lat: parseFloat(place.lat), lng: parseFloat(place.lon) });
+                    list.appendChild(div);
+                });
+            }, 500);
+        };
+
+        window.enableMapSelect = () => {
+            mapSelectMode = true;
+            document.getElementById('ui-search').classList.add('hidden'); // Hide overlay, show map
+            document.getElementById('map-target').style.display = 'block';
+            document.getElementById('map-confirm-btn').style.display = 'block';
+            // Show Search Overlay again on top but smaller? No, just keep the button
+            document.getElementById('ui-search').classList.remove('hidden'); 
+            document.getElementById('ui-search').style.background = 'transparent'; // Trick to see map
+            document.querySelector('#ui-search > div:first-child').style.display = 'none'; // Hide inputs
+        };
+
+        window.confirmMapSelection = () => {
+            const center = map.getCenter();
+            dropLoc = { lat: center.lat, lng: center.lng };
+            // Restore UI
+            document.getElementById('ui-search').style.background = 'white';
+            document.querySelector('#ui-search > div:first-child').style.display = 'block';
+            closeSearchMode();
+            calculateRoute();
+        };
+
+        function selectDropLocation(coords) {
+            dropLoc = coords;
+            closeSearchMode();
+            calculateRoute();
+        }
+
+        function calculateRoute() {
+            if(routeControl) map.removeControl(routeControl);
+            
+            // OSRM Routing (Blue Line)
+            routeControl = L.Routing.control({
+                waypoints: [L.latLng(myLoc), L.latLng(dropLoc)],
+                lineOptions: { styles: [{color: 'black', opacity: 0.7, weight: 5}] },
+                createMarker: function() { return null; }, // No markers, we have our own
+                addWaypoints: false,
+                draggableWaypoints: false,
+                fitSelectedRoutes: true
+            }).addTo(map);
+
+            routeControl.on('routesfound', function(e) {
+                const routes = e.routes;
+                const summary = routes[0].summary;
+                const distKm = (summary.totalDistance / 1000).toFixed(1);
+                
+                showBookingSheet(distKm);
+            });
+        }
+
+        // --- 6. BOOKING LOGIC (QR Smart Lock) ---
+        function checkQRContext() {
+            const params = new URLSearchParams(window.location.search);
+            if(params.has('driverId')) {
+                const type = params.get('type') || 'auto';
+                document.getElementById('qr-info-banner').classList.remove('hidden');
+                selectVehicle(type); // Auto select
             }
         }
+
+        function showBookingSheet(km) {
+            document.getElementById('sheet-booking').classList.add('active');
+            document.getElementById('total-dist').innerText = km + " km";
+            
+            // Calculate Prices
+            const pAuto = Math.round(30 + (km * 12));
+            const pBike = Math.round(20 + (km * 8));
+            
+            document.getElementById('price-auto').innerText = pAuto;
+            document.getElementById('price-bike').innerText = pBike;
+            
+            baseFare = pAuto; // Default
+            updateFare(0);
+        }
+
+        window.selectVehicle = (type) => {
+            selectedVehicle = type;
+            // Visual Update
+            document.querySelectorAll('.ride-card').forEach(el => {
+                el.classList.remove('border-black', 'bg-yellow-50');
+                el.classList.add('border-transparent');
+            });
+            document.getElementById(`opt-${type}`).classList.add('border-black', 'bg-yellow-50');
+            document.getElementById(`opt-${type}`).classList.remove('border-transparent');
+            
+            baseFare = parseInt(document.getElementById(`price-${type}`).innerText);
+            updateFare(document.querySelector('input[type=range]').value);
+        };
+
+        window.updateFare = (extra) => {
+            const total = baseFare + parseInt(extra);
+            document.getElementById('total-fare').innerText = "₹" + total;
+        };
+
+        // --- 7. FIREBASE TRANSACTION ---
+        window.bookRide = () => {
+            document.getElementById('sheet-booking').classList.remove('active');
+            
+            const otp = Math.floor(1000 + Math.random() * 9000);
+            document.getElementById('otp-disp').innerText = otp;
+            
+            const newRide = push(ref(db, 'rides'));
+            currentRideId = newRide.key;
+            
+            // Get specific driver from QR if present
+            const params = new URLSearchParams(window.location.search);
+            const dId = params.get('driverId') || 'broadcast';
+
+            set(newRide, {
+                passenger: userProfile,
+                driverId: dId,
+                pickup: myLoc,
+                drop: dropLoc,
+                fare: document.getElementById('total-fare').innerText,
+                vehicle: selectedVehicle,
+                status: 'pending',
+                otp: otp,
+                timestamp: Date.now()
+            });
+
+            // Show Ride Screen
+            document.getElementById('sheet-ride').classList.add('active');
+            
+            // Listen for Driver Status (Realtime)
+            onValue(ref(db, `rides/${currentRideId}`), (snap) => {
+                const data = snap.val();
+                if(data && data.status === 'accepted') {
+                    alert("Driver Accepted! 🎉");
+                }
+            });
+        };
+
+        // --- 8. SAFETY & UTILS ---
+        window.shareLoc = () => {
+            const msg = `Track my Zayra Ride! Vehicle: DL 1R 4202. Live Link: https://zayra.vercel.app/track/${currentRideId}`;
+            window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`);
+        };
+
+        window.triggerSOS = () => {
+            if(confirm("EMERGENCY: Call Police and Alert Contacts?")) {
+                alert("SOS Alert Sent to Control Room & Family!");
+                window.location.href = "tel:100";
+            }
+        };
+
+        window.toggleSidebar = () => {
+            const sb = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            if(sb.classList.contains('-translate-x-full')) {
+                sb.classList.remove('-translate-x-full');
+                overlay.classList.remove('hidden');
+            } else {
+                sb.classList.add('-translate-x-full');
+                overlay.classList.add('hidden');
+            }
+        };
+
+        // Cancellation Logic
+        window.openCancelModal = () => document.getElementById('modal-cancel').classList.remove('hidden');
+        window.closeCancelModal = () => document.getElementById('modal-cancel').classList.add('hidden');
+        window.confirmCancel = (reason) => {
+            if(currentRideId) remove(ref(db, `rides/${currentRideId}`));
+            alert(`Ride Cancelled. Reason: ${reason}`);
+            location.reload();
+        };
+
     </script>
 </body>
 </html>
