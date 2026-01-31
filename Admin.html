@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zayra Admin - QR Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        @media print {
+            body * { visibility: hidden; }
+            #printable-area, #printable-area * { visibility: visible; }
+            #printable-area { position: absolute; left: 0; top: 0; width: 100%; }
+            .no-print { display: none; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center py-10">
+
+    <div class="bg-white p-8 rounded-xl shadow-xl w-full max-w-md no-print mb-8">
+        <h1 class="text-2xl font-bold mb-6 text-center">🖨️ Create Driver Sticker</h1>
+        
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-bold text-gray-500 mb-1">Your Vercel App Link</label>
+                <input type="text" id="app-url" value="https://zayra-travels.vercel.app" class="w-full p-3 border rounded bg-gray-50 text-sm" placeholder="https://your-app.vercel.app">
+                <p class="text-xs text-red-500 mt-1">*Paste your passenger.html link here without /passenger.html</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-bold text-gray-500 mb-1">Driver ID</label>
+                    <input type="text" id="d-id" class="w-full p-3 border rounded font-bold" placeholder="driver_001">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-500 mb-1">Vehicle Type</label>
+                    <select id="d-type" class="w-full p-3 border rounded font-bold">
+                        <option value="auto">Auto</option>
+                        <option value="bike">Bike</option>
+                        <option value="cab">Cab</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-bold text-gray-500 mb-1">Vehicle Number (Plate)</label>
+                <input type="text" id="d-plate" class="w-full p-3 border rounded font-bold uppercase" placeholder="DL 1R 5555">
+            </div>
+
+            <button onclick="generateQR()" class="w-full bg-black text-white py-4 rounded-xl font-bold text-lg shadow-lg">Generate Sticker</button>
+            <button onclick="window.print()" class="w-full bg-yellow-400 text-black py-4 rounded-xl font-bold text-lg shadow-lg hidden" id="print-btn">Print Sticker</button>
+        </div>
+    </div>
+
+    <div id="printable-area" class="hidden">
+        <div class="w-[350px] h-[500px] bg-yellow-400 rounded-3xl p-6 flex flex-col items-center justify-between shadow-2xl mx-auto border-4 border-black relative overflow-hidden">
+            
+            <div class="text-center z-10">
+                <h1 class="text-4xl font-extrabold tracking-tighter">ZAYRA</h1>
+                <p class="font-bold text-sm uppercase tracking-widest">Instant Ride Booking</p>
+            </div>
+
+            <div class="bg-white p-4 rounded-2xl shadow-lg z-10">
+                <div id="qrcode"></div>
+            </div>
+
+            <div class="text-center z-10">
+                <div class="bg-black text-white px-4 py-1 rounded-full text-sm font-bold mb-2 uppercase" id="disp-type">AUTO</div>
+                <h2 class="text-3xl font-black uppercase" id="disp-plate">DL 1R 5555</h2>
+                <p class="text-xs font-bold mt-1">Scan to Book this Ride</p>
+            </div>
+
+            <div class="absolute -bottom-10 -right-10 w-40 h-40 bg-white opacity-20 rounded-full"></div>
+            <div class="absolute top-20 -left-10 w-20 h-20 bg-black opacity-10 rounded-full"></div>
+        </div>
+    </div>
+
+    <script>
+        function generateQR() {
+            const baseUrl = document.getElementById('app-url').value;
+            const id = document.getElementById('d-id').value;
+            const type = document.getElementById('d-type').value;
+            const plate = document.getElementById('d-plate').value;
+
+            if(!baseUrl || !id || !plate) return alert("Please fill all fields");
+
+            // 1. Construct the Magic URL
+            // Ensure URL points to passenger.html
+            let cleanUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+            if(!cleanUrl.includes('passenger.html')) {
+                cleanUrl += '/passenger.html';
+            }
+
+            const finalLink = `${cleanUrl}?driverId=${id}&type=${type}&plate=${plate.toUpperCase()}`;
+            console.log("Generated Link:", finalLink);
+
+            // 2. Clear previous QR
+            document.getElementById('qrcode').innerHTML = "";
+
+            // 3. Generate New QR
+            new QRCode(document.getElementById("qrcode"), {
+                text: finalLink,
+                width: 200,
+                height: 200,
+                colorDark : "#000000",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.H
+            });
+
+            // 4. Update Sticker Text
+            document.getElementById('disp-type').innerText = type.toUpperCase();
+            document.getElementById('disp-plate').innerText = plate.toUpperCase();
+
+            // 5. Show Sticker
+            document.getElementById('printable-area').classList.remove('hidden');
+            document.getElementById('print-btn').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
