@@ -3,226 +3,202 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Zayra - Production App</title>
+    <title>Zayra Cabs</title>
     
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
-    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
-    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.tailwindcss.com"></script>
 
     <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; overflow: hidden; background: #f8f9fa; }
+        /* RAPIDO STYLE OVERRIDES */
+        body { font-family: sans-serif; overflow: hidden; background: #fff; }
         
-        /* Custom Map Tweaks */
-        #map { height: 100vh; width: 100%; z-index: 0; }
-        .leaflet-routing-container { display: none !important; } /* Hide ugly instructions */
-        
-        /* Smooth Bottom Sheet Animation */
-        .bottom-sheet {
-            transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+        /* Smooth Sheet Animation */
+        .sheet {
+            transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
             transform: translateY(110%);
         }
-        .bottom-sheet.active { transform: translateY(0); }
+        .sheet.open { transform: translateY(0); }
 
-        /* Search Suggestion Styling */
-        .leaflet-control-geocoder { display: none; } /* Hide default input, we connect custom input */
-        .suggestion-item { padding: 12px; border-bottom: 1px solid #f0f0f0; background: white; cursor: pointer; }
-        .suggestion-item:hover { background: #f9f9f9; }
+        /* Custom Scrollbar */
+        .hide-scroll::-webkit-scrollbar { display: none; }
+
+        /* Map Fixes */
+        #map { height: 100vh; width: 100%; z-index: 0; }
+        .leaflet-control-attribution { display: none; }
         
-        /* Floating Search Bar */
-        .search-ui {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            background: white; z-index: 2000; display: none;
+        /* Loader */
+        .loader {
+            border: 3px solid #f3f3f3; border-top: 3px solid #F1C40F;
+            border-radius: 50%; width: 20px; height: 20px;
+            animation: spin 1s linear infinite; display: none;
         }
-        .search-active .search-ui { display: block; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
-<body class="bg-gray-100">
-
-    <div id="login-modal" class="fixed inset-0 bg-white z-[3000] p-6 flex flex-col justify-center hidden">
-        <div class="text-center mb-8">
-            <img src="https://cdn-icons-png.flaticon.com/512/3082/3082383.png" class="w-20 mx-auto mb-4">
-            <h1 class="text-2xl font-bold text-gray-900">Welcome to Zayra</h1>
-            <p class="text-gray-500">Enter details to start your ride</p>
-        </div>
-        <div class="space-y-4">
-            <div>
-                <label class="text-xs font-bold text-gray-500 uppercase">Full Name</label>
-                <input type="text" id="user-name" class="w-full p-4 bg-gray-100 rounded-xl font-semibold outline-none focus:ring-2 focus:ring-black" placeholder="e.g. Danish Khan">
-            </div>
-            <div>
-                <label class="text-xs font-bold text-gray-500 uppercase">Phone Number</label>
-                <input type="tel" id="user-phone" class="w-full p-4 bg-gray-100 rounded-xl font-semibold outline-none focus:ring-2 focus:ring-black" placeholder="+91 99999 99999">
-            </div>
-            <button onclick="registerUser()" class="w-full bg-black text-white p-4 rounded-xl font-bold text-lg shadow-lg">Get Started</button>
-        </div>
-    </div>
+<body class="bg-gray-50">
 
     <div id="map"></div>
 
-    <div id="top-bar" class="absolute top-4 left-4 right-4 z-[1000] flex justify-between items-center pointer-events-none">
-        <div class="bg-white p-3 rounded-full shadow-lg pointer-events-auto" onclick="toggleSidebar()">
-            <i class="ri-menu-2-line text-xl"></i>
-        </div>
-        <div class="bg-white px-4 py-2 rounded-full shadow-lg font-bold text-sm pointer-events-auto flex items-center gap-2">
-            <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            Online
-        </div>
-    </div>
-
-    <div id="home-search" class="absolute bottom-0 left-0 w-full bg-white rounded-t-3xl p-6 shadow-2xl z-[1000] transition-all duration-300">
-        <h3 class="text-lg font-bold mb-4">Where to?</h3>
-        <div class="bg-gray-100 p-4 rounded-xl flex items-center gap-3 cursor-pointer" onclick="activateSearchMode()">
-            <i class="ri-search-line text-xl text-gray-500"></i>
-            <span class="text-gray-500 font-medium">Search destination...</span>
-        </div>
+    <div id="login-modal" class="fixed inset-0 bg-white z-[3000] flex flex-col justify-center p-6 hidden">
+        <h1 class="text-3xl font-extrabold mb-2">Let's get started</h1>
+        <p class="text-gray-500 mb-8">Enter your details to create an account</p>
         
-        <div class="mt-6">
-            <div class="flex items-center gap-4 py-3 border-b border-gray-100">
-                <div class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-500"><i class="ri-home-fill"></i></div>
-                <div><div class="font-bold text-sm">Home</div><div class="text-xs text-gray-400">Set location</div></div>
-            </div>
-            <div class="flex items-center gap-4 py-3">
-                <div class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-500"><i class="ri-briefcase-fill"></i></div>
-                <div><div class="font-bold text-sm">Work</div><div class="text-xs text-gray-400">Set location</div></div>
-            </div>
-        </div>
+        <label class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Full Name</label>
+        <input type="text" id="u-name" class="w-full bg-gray-100 p-4 rounded-lg font-bold mb-4 outline-none border-2 border-transparent focus:border-black" placeholder="Your Name">
+        
+        <label class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Phone Number</label>
+        <input type="tel" id="u-phone" class="w-full bg-gray-100 p-4 rounded-lg font-bold mb-8 outline-none border-2 border-transparent focus:border-black" placeholder="+91 99999 99999">
+        
+        <button onclick="saveUser()" class="w-full bg-yellow-400 text-black p-4 rounded-lg font-bold text-lg shadow-lg">Continue</button>
     </div>
 
-    <div id="full-search-ui" class="search-ui flex flex-col">
-        <div class="p-4 shadow-sm bg-white z-10">
-            <div class="flex items-center mb-4">
-                <i class="ri-arrow-left-line text-2xl mr-4 cursor-pointer" onclick="deactivateSearchMode()"></i>
-                <h2 class="font-bold text-lg">Select Location</h2>
+    <div id="home-search" class="absolute top-10 left-4 right-4 bg-white rounded-xl shadow-xl p-4 z-[1000] flex items-center gap-3 cursor-pointer transition-all" onclick="openSearch()">
+        <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+        <div class="flex-1">
+            <div class="text-xs text-green-600 font-bold">Your Current Location</div>
+            <div class="text-sm font-bold text-gray-400">Where are you going?</div>
+        </div>
+        <i class="ri-search-line text-xl text-gray-400"></i>
+    </div>
+
+    <div id="search-ui" class="fixed inset-0 bg-white z-[2000] hidden flex flex-col">
+        <div class="p-4 shadow-sm bg-white relative z-10">
+            <div class="flex items-center mb-6">
+                <i class="ri-arrow-left-line text-2xl mr-4 cursor-pointer" onclick="closeSearch()"></i>
+                <h2 class="font-bold text-xl">Select Location</h2>
             </div>
             
-            <div class="relative pl-8 space-y-4">
-                <div class="absolute left-3 top-4 bottom-4 w-0.5 bg-gray-300 border-l border-dashed"></div>
+            <div class="relative">
+                <div class="absolute left-[14px] top-8 bottom-8 border-l-2 border-dashed border-gray-300"></div>
                 
-                <div class="relative">
-                    <div class="absolute -left-8 top-3 w-3 h-3 bg-green-500 rounded-full border-2 border-white shadow"></div>
-                    <input type="text" id="pickup-input" class="w-full bg-gray-100 p-3 rounded-lg text-sm font-semibold text-gray-500" value="Current Location" readonly>
+                <div class="flex items-center gap-4 mb-4">
+                    <div class="w-2 h-2 rounded-full bg-green-500 ring-4 ring-green-100"></div>
+                    <input type="text" id="pickup-in" class="flex-1 bg-gray-100 p-3 rounded-lg text-sm font-bold text-gray-500 outline-none" value="Detecting location..." readonly>
                 </div>
                 
-                <div class="relative">
-                    <div class="absolute -left-8 top-3 w-3 h-3 bg-red-500 rounded-full border-2 border-white shadow"></div>
-                    <input type="text" id="drop-input" class="w-full bg-gray-100 p-3 rounded-lg text-sm font-semibold focus:ring-2 focus:ring-black outline-none" placeholder="Search Drop Location" autofocus oninput="handleTyping(this.value)">
-                    <div id="clear-btn" class="absolute right-3 top-3 text-gray-400 hidden" onclick="clearSearch()"><i class="ri-close-circle-fill"></i></div>
+                <div class="flex items-center gap-4">
+                    <div class="w-2 h-2 rounded-full bg-orange-500 ring-4 ring-orange-100"></div>
+                    <div class="flex-1 relative">
+                        <input type="text" id="drop-in" class="w-full bg-gray-100 p-3 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-black" placeholder="Search destination (e.g. Vegas Mall)" oninput="searchLocation(this.value)">
+                        <div id="search-loader" class="loader absolute right-3 top-3"></div>
+                    </div>
                 </div>
+            </div>
+            
+            <div class="flex gap-2 mt-4 overflow-x-auto hide-scroll">
+                <button class="px-4 py-2 bg-white border border-gray-300 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1">
+                    <i class="ri-map-pin-user-line"></i> Select on Map
+                </button>
+                <button class="px-4 py-2 bg-white border border-gray-300 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1">
+                    <i class="ri-add-circle-line"></i> Add Stop
+                </button>
             </div>
         </div>
 
-        <div id="search-results" class="flex-1 overflow-y-auto bg-gray-50 p-2">
+        <div id="results-list" class="flex-1 overflow-y-auto bg-gray-50 p-2 space-y-2">
             </div>
     </div>
 
-    <div id="vehicle-sheet" class="bottom-sheet fixed bottom-0 left-0 w-full bg-white rounded-t-3xl shadow-2xl z-[1500] max-h-[85vh] overflow-y-auto">
-        <div class="p-6">
-            <div class="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-6"></div>
-            
-            <div class="flex justify-between items-end mb-6 border-b pb-4">
+    <div id="vehicle-sheet" class="sheet fixed bottom-0 left-0 w-full bg-white rounded-t-3xl shadow-[0_-5px_20px_rgba(0,0,0,0.1)] z-[1500] max-h-[80vh] overflow-y-auto">
+        
+        <div class="w-12 h-1 bg-gray-200 rounded-full mx-auto mt-3 mb-6"></div>
+        
+        <div class="px-6 pb-24">
+            <div class="flex justify-between items-end mb-6">
                 <div>
-                    <h2 class="text-2xl font-bold" id="dist-display">0 km</h2>
-                    <p class="text-gray-500 text-sm" id="time-display">0 mins</p>
+                    <h2 class="text-3xl font-extrabold" id="v-price">₹0</h2>
+                    <p class="text-xs text-gray-500">Total distance: <span id="v-dist">0 km</span></p>
                 </div>
-                <div class="text-right">
-                    <div class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded font-bold">COUPON APPLIED</div>
+                <div class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">
+                    <i class="ri-discount-percent-fill"></i> Coupon Applied
                 </div>
             </div>
 
-            <div class="space-y-3 mb-20">
-                <div class="flex items-center justify-between p-4 border-2 border-black bg-yellow-50 rounded-xl cursor-pointer" onclick="selectVehicle('auto', this)">
+            <div class="space-y-3">
+                <div onclick="selectRide('auto')" class="ride-opt border-2 border-transparent p-4 rounded-xl bg-gray-50 flex items-center justify-between cursor-pointer hover:border-black hover:bg-yellow-50 transition-all">
                     <div class="flex items-center gap-4">
                         <img src="https://cdn-icons-png.flaticon.com/512/2555/2555013.png" class="w-12">
                         <div>
-                            <div class="font-bold">Auto</div>
-                            <div class="text-xs text-gray-500">Fastest • 3 min</div>
+                            <div class="font-bold text-gray-800">Auto</div>
+                            <div class="text-xs text-gray-500">3 min away • 3 seats</div>
                         </div>
                     </div>
-                    <div class="text-right">
-                        <div class="font-bold text-lg">₹<span id="price-auto">0</span></div>
-                    </div>
+                    <div class="font-bold text-lg">₹<span id="cost-auto">0</span></div>
                 </div>
-                <div class="flex items-center justify-between p-4 border border-gray-200 rounded-xl cursor-pointer" onclick="selectVehicle('bike', this)">
+
+                <div onclick="selectRide('bike')" class="ride-opt border-2 border-transparent p-4 rounded-xl bg-gray-50 flex items-center justify-between cursor-pointer hover:border-black hover:bg-yellow-50 transition-all">
                     <div class="flex items-center gap-4">
                         <img src="https://cdn-icons-png.flaticon.com/512/3082/3082383.png" class="w-12">
                         <div>
-                            <div class="font-bold">Bike</div>
-                            <div class="text-xs text-gray-500">Cheapest • 2 min</div>
+                            <div class="font-bold text-gray-800">Bike</div>
+                            <div class="text-xs text-gray-500">1 min away • 1 seat</div>
                         </div>
                     </div>
-                    <div class="text-right">
-                        <div class="font-bold text-lg">₹<span id="price-bike">0</span></div>
-                    </div>
+                    <div class="font-bold text-lg">₹<span id="cost-bike">0</span></div>
                 </div>
-                <div class="flex items-center justify-between p-4 border border-gray-200 rounded-xl cursor-pointer" onclick="selectVehicle('cab', this)">
+                
+                <div onclick="selectRide('cab')" class="ride-opt border-2 border-transparent p-4 rounded-xl bg-gray-50 flex items-center justify-between cursor-pointer hover:border-black hover:bg-yellow-50 transition-all">
                     <div class="flex items-center gap-4">
                         <img src="https://cdn-icons-png.flaticon.com/512/2554/2554936.png" class="w-12">
                         <div>
-                            <div class="font-bold">Cab</div>
-                            <div class="text-xs text-gray-500">AC • 5 min</div>
+                            <div class="font-bold text-gray-800">Cab Economy</div>
+                            <div class="text-xs text-gray-500">5 min away • AC</div>
                         </div>
                     </div>
-                    <div class="text-right">
-                        <div class="font-bold text-lg">₹<span id="price-cab">0</span></div>
-                    </div>
+                    <div class="font-bold text-lg">₹<span id="cost-cab">0</span></div>
                 </div>
             </div>
+        </div>
 
-            <div class="fixed bottom-0 left-0 w-full p-4 bg-white border-t">
-                <button onclick="bookRide()" class="w-full bg-black text-white py-4 rounded-xl font-bold text-lg">Book Auto</button>
+        <div class="fixed bottom-0 left-0 w-full p-4 bg-white border-t border-gray-100">
+            <div class="flex gap-4 mb-3 px-2">
+                <div class="flex-1 flex items-center gap-2 cursor-pointer">
+                    <i class="ri-money-rupee-circle-fill text-xl text-green-600"></i>
+                    <span class="text-sm font-bold">Cash</span>
+                    <i class="ri-arrow-down-s-line text-gray-400"></i>
+                </div>
+                <div class="flex-1 flex items-center justify-end gap-2 cursor-pointer">
+                    <i class="ri-ticket-2-fill text-xl text-blue-600"></i>
+                    <span class="text-sm font-bold">Offers</span>
+                </div>
             </div>
+            <button onclick="bookNow()" class="w-full bg-yellow-400 text-black py-4 rounded-xl font-bold text-lg shadow-lg">Book Ride</button>
         </div>
     </div>
 
-    <div id="status-sheet" class="bottom-sheet fixed bottom-0 left-0 w-full bg-white rounded-t-3xl shadow-2xl z-[1600]">
-        <div class="p-6">
-            <div class="text-center mb-6">
-                <div class="animate-spin w-8 h-8 border-4 border-black border-t-transparent rounded-full mx-auto mb-2"></div>
-                <h2 class="font-bold text-xl" id="status-text">Finding nearby drivers...</h2>
-                <p class="text-gray-500 text-sm">Connecting you to the best ride</p>
-            </div>
-            
-            <div id="driver-info" class="hidden">
-                <div class="flex items-center gap-4 bg-gray-50 p-4 rounded-xl mb-4 border border-gray-200">
-                    <div class="w-14 h-14 bg-gray-300 rounded-full overflow-hidden">
-                         <img src="https://randomuser.me/api/portraits/men/75.jpg" class="w-full h-full object-cover">
-                    </div>
-                    <div class="flex-1">
-                        <div class="font-bold text-lg" id="d-name">Driver Name</div>
-                        <div class="text-sm text-gray-500" id="d-vehicle">White Swift • DL 1R 0000</div>
-                    </div>
-                    <div class="bg-green-100 text-green-700 px-3 py-1 rounded-lg font-bold text-sm">
-                        OTP: <span id="ride-otp">1234</span>
-                    </div>
+    <div id="status-sheet" class="sheet fixed bottom-0 left-0 w-full bg-white rounded-t-3xl shadow-[0_-5px_20px_rgba(0,0,0,0.1)] z-[1600] p-6 text-center">
+        <div class="loader mx-auto mb-4" style="display:block"></div>
+        <h2 class="text-xl font-bold mb-1">Connecting to Driver...</h2>
+        <p class="text-sm text-gray-500 mb-6">Please wait while we send your request</p>
+        
+        <div id="driver-details" class="hidden text-left bg-gray-50 p-4 rounded-xl border border-gray-200">
+            <div class="flex items-center gap-3 mb-3">
+                <img src="https://randomuser.me/api/portraits/men/32.jpg" class="w-12 h-12 rounded-full border-2 border-yellow-400">
+                <div>
+                    <div class="font-bold text-lg">Raju Kumar</div>
+                    <div class="text-xs text-gray-500">⭐ 4.8 • 1200+ Rides</div>
                 </div>
-                
-                <div class="grid grid-cols-2 gap-3">
-                    <button class="p-3 border rounded-lg flex flex-col items-center justify-center gap-1 hover:bg-gray-50">
-                        <i class="ri-phone-fill text-xl text-blue-600"></i>
-                        <span class="text-xs font-bold">Call</span>
-                    </button>
-                    <button class="p-3 border rounded-lg flex flex-col items-center justify-center gap-1 hover:bg-gray-50">
-                        <i class="ri-message-2-fill text-xl text-green-600"></i>
-                        <span class="text-xs font-bold">Chat</span>
-                    </button>
+                <div class="ml-auto text-right">
+                    <div class="font-bold text-xl text-gray-800">DL 1R 5555</div>
+                    <div class="text-xs text-gray-500">White Dzire</div>
                 </div>
             </div>
-
-            <button onclick="cancelRide()" class="w-full mt-6 bg-red-50 text-red-600 py-3 rounded-xl font-bold">Cancel Ride</button>
+            <div class="flex gap-2">
+                <button class="flex-1 bg-green-100 text-green-700 py-2 rounded-lg font-bold text-sm"><i class="ri-phone-fill"></i> Call</button>
+                <button class="flex-1 bg-blue-100 text-blue-700 py-2 rounded-lg font-bold text-sm"><i class="ri-message-3-fill"></i> Chat</button>
+            </div>
         </div>
+
+        <button onclick="cancelRide()" class="mt-6 text-red-500 font-bold text-sm">Cancel Request</button>
     </div>
 
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, push, set, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getDatabase, ref, set, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-        // 1. CONFIGURATION
+        // CONFIG
         const firebaseConfig = {
             apiKey: "AIzaSyAAMshTP9HgrB27FuLNP4CZN6VJKPDW8CQ",
             authDomain: "zayra-travels.firebaseapp.com",
@@ -235,257 +211,198 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // GLOBAL STATE
-        let map, routingControl;
-        let userProfile = JSON.parse(localStorage.getItem('zayra_user')) || null;
-        let currentLoc = { lat: 28.6139, lng: 77.2090 };
+        // STATE
+        let map, userMarker, routeLine;
+        let myLoc = { lat: 28.61, lng: 77.20 };
         let dropLoc = null;
+        let selectedVehicle = 'auto';
         let currentRideId = null;
-        let selectedType = 'auto';
 
-        // 2. INITIALIZATION
+        // 1. INIT
         window.onload = () => {
-            if (!userProfile) {
+            const user = localStorage.getItem('zayra_user');
+            if(!user) {
                 document.getElementById('login-modal').classList.remove('hidden');
             } else {
                 initMap();
             }
         };
 
-        window.registerUser = () => {
-            const name = document.getElementById('user-name').value;
-            const phone = document.getElementById('user-phone').value;
-            if(!name || !phone) return alert("Please fill all details");
-
-            userProfile = { name, phone, id: 'u_' + Date.now() };
-            localStorage.setItem('zayra_user', JSON.stringify(userProfile));
-            
-            // Save to Firebase
-            set(ref(db, 'users/' + userProfile.id), userProfile);
-            
+        window.saveUser = () => {
+            const name = document.getElementById('u-name').value;
+            const phone = document.getElementById('u-phone').value;
+            if(!name || !phone) return alert("Fill all details");
+            localStorage.setItem('zayra_user', JSON.stringify({ name, phone }));
             document.getElementById('login-modal').classList.add('hidden');
             initMap();
         }
 
-        // 3. MAP & LOCATION
+        // 2. MAP & GPS
         function initMap() {
-            map = L.map('map', { zoomControl: false }).setView([currentLoc.lat, currentLoc.lng], 13);
-            
-            // Clean Google-like Map Tiles (CartoDB)
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-                attribution: ''
-            }).addTo(map);
+            map = L.map('map', { zoomControl: false }).setView([myLoc.lat, myLoc.lng], 14);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '' }).addTo(map);
 
-            if (navigator.geolocation) {
+            if(navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(pos => {
-                    currentLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-                    map.setView(currentLoc, 16);
+                    myLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                    map.setView(myLoc, 16);
                     
-                    // User Marker (Blue Dot)
-                    const userIcon = L.divIcon({
-                        className: 'user-marker',
-                        html: '<div style="width:16px;height:16px;background:#3B82F6;border-radius:50%;border:3px solid white;box-shadow:0 2px 5px rgba(0,0,0,0.3);"></div>'
+                    // User Marker (Pulse Effect)
+                    const icon = L.divIcon({
+                        className: 'custom-pin',
+                        html: `<div style="width:15px;height:15px;background:#3B82F6;border-radius:50%;border:3px solid white;box-shadow:0 0 10px rgba(59,130,246,0.5);"></div>`
                     });
-                    L.marker(currentLoc, {icon: userIcon}).addTo(map);
-                    
-                    // Update Pickup Input Text
-                    reverseGeocode(currentLoc.lat, currentLoc.lng);
+                    userMarker = L.marker(myLoc, {icon: icon}).addTo(map);
+
+                    // Reverse Geocode (Get Name)
+                    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${myLoc.lat}&lon=${myLoc.lng}`)
+                    .then(r => r.json()).then(d => {
+                        document.getElementById('pickup-in').value = d.display_name.split(',')[0];
+                    });
                 });
             }
         }
 
-        function reverseGeocode(lat, lng) {
-            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
-                .then(r => r.json())
-                .then(data => {
-                    document.getElementById('pickup-input').value = data.display_name.split(',')[0]; // Short address
-                });
+        // 3. SEARCH LOGIC (FIXED: Using Direct API)
+        let debounce;
+        window.openSearch = () => {
+            document.getElementById('search-ui').classList.remove('hidden');
+            document.getElementById('drop-in').focus();
         }
+        window.closeSearch = () => document.getElementById('search-ui').classList.add('hidden');
 
-        // 4. SEARCH LOGIC (The Professional Part)
-        // We use Leaflet Geocoder but render results manually to match Rapido UI
-        
-        let geocoder = L.Control.Geocoder.nominatim();
-        let debounceTimer;
-
-        window.activateSearchMode = () => {
-            document.getElementById('full-search-ui').classList.add('search-active');
-            document.getElementById('drop-input').focus();
-        };
-
-        window.deactivateSearchMode = () => {
-            document.getElementById('full-search-ui').classList.remove('search-active');
-        };
-
-        window.handleTyping = (query) => {
-            clearTimeout(debounceTimer);
+        window.searchLocation = (query) => {
+            clearTimeout(debounce);
             if(query.length < 3) return;
+            
+            document.getElementById('search-loader').style.display = 'block';
 
-            debounceTimer = setTimeout(() => {
-                geocoder.geocode(query, (results) => {
-                    const list = document.getElementById('search-results');
-                    list.innerHTML = ''; // Clear previous
+            debounce = setTimeout(() => {
+                // FORCE SEARCH INDIA
+                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&countrycodes=in&limit=5`)
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('search-loader').style.display = 'none';
+                    const list = document.getElementById('results-list');
+                    list.innerHTML = ""; // Clear old
 
-                    results.forEach(res => {
-                        const div = document.createElement('div');
-                        div.className = 'flex items-center gap-4 p-4 border-b border-gray-100 bg-white cursor-pointer hover:bg-gray-50';
-                        div.innerHTML = `
-                            <div class="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 flex-shrink-0">
+                    if(data.length === 0) {
+                        list.innerHTML = `<div class="p-4 text-center text-gray-400">No results found</div>`;
+                        return;
+                    }
+
+                    data.forEach(place => {
+                        const item = document.createElement('div');
+                        item.className = "flex items-center gap-3 p-4 border-b border-gray-100 bg-white cursor-pointer hover:bg-gray-50";
+                        item.innerHTML = `
+                            <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
                                 <i class="ri-map-pin-line"></i>
                             </div>
                             <div>
-                                <div class="font-bold text-sm text-gray-800">${res.name.split(',')[0]}</div>
-                                <div class="text-xs text-gray-400 truncate w-64">${res.name}</div>
+                                <div class="font-bold text-sm text-gray-800">${place.display_name.split(',')[0]}</div>
+                                <div class="text-xs text-gray-400 truncate w-64">${place.display_name}</div>
                             </div>
                         `;
-                        div.onclick = () => selectDestination(res);
-                        list.appendChild(div);
+                        item.onclick = () => selectDrop(place);
+                        list.appendChild(item);
                     });
+                })
+                .catch(err => {
+                    console.error(err);
+                    document.getElementById('search-loader').style.display = 'none';
                 });
-            }, 300); // 300ms debounce
-        };
+            }, 500);
+        }
 
-        function selectDestination(res) {
-            dropLoc = res.center; // Leaflet LatLng object
-            document.getElementById('drop-input').value = res.name;
-            deactivateSearchMode();
+        function selectDrop(place) {
+            dropLoc = { lat: parseFloat(place.lat), lng: parseFloat(place.lon) };
             
-            // Draw Route
-            drawRoute();
+            // UI Updates
+            closeSearch();
+            document.getElementById('home-search').classList.add('hidden'); // Hide floating bar
+            document.getElementById('vehicle-sheet').classList.add('open');
+            
+            // Draw Route (Simple Line)
+            if(routeLine) map.removeLayer(routeLine);
+            routeLine = L.polyline([myLoc, dropLoc], {color: 'black', weight: 4}).addTo(map);
+            map.fitBounds(routeLine.getBounds(), {padding: [50, 50]});
+            
+            // Add Drop Marker
+            L.marker(dropLoc, {icon: L.icon({
+                iconUrl: 'https://cdn-icons-png.flaticon.com/512/3082/3082383.png', // Flag icon needed
+                iconSize: [0,0] // Hidden for now, line is enough
+            })}).addTo(map);
+
+            calculateFare();
         }
 
-        function drawRoute() {
-            if (routingControl) map.removeControl(routingControl);
-
-            routingControl = L.Routing.control({
-                waypoints: [
-                    L.latLng(currentLoc.lat, currentLoc.lng),
-                    dropLoc
-                ],
-                routeWhileDragging: false,
-                addWaypoints: false,
-                draggableWaypoints: false,
-                lineOptions: { styles: [{ color: 'black', opacity: 0.8, weight: 4 }] },
-                createMarker: function(i, wp, nWps) {
-                    if (i === 0) return null; // No marker for start (already have blue dot)
-                    return L.marker(wp.latLng, {
-                        icon: L.icon({
-                            iconUrl: 'https://cdn-icons-png.flaticon.com/512/3082/3082383.png', // Flag or Pin
-                            iconSize: [30, 30]
-                        })
-                    });
-                }
-            }).addTo(map);
-
-            routingControl.on('routesfound', function(e) {
-                const routes = e.routes;
-                const summary = routes[0].summary;
-                
-                // Update UI with Data
-                const km = (summary.totalDistance / 1000).toFixed(1);
-                const mins = Math.round(summary.totalTime / 60);
-                
-                document.getElementById('dist-display').innerText = `${km} km`;
-                document.getElementById('time-display').innerText = `${mins} mins`;
-
-                // Calculate Prices
-                calculatePrices(km);
-                
-                // Show Vehicle Sheet
-                document.getElementById('home-search').classList.add('hidden');
-                document.getElementById('vehicle-sheet').classList.add('active');
-            });
+        // 4. FARE CALCULATION
+        function calculateFare() {
+            // Haversine Distance
+            const R = 6371; 
+            const dLat = (dropLoc.lat - myLoc.lat) * Math.PI/180;
+            const dLon = (dropLoc.lng - myLoc.lng) * Math.PI/180;
+            const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(myLoc.lat*Math.PI/180)*Math.cos(dropLoc.lat*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+            const dist = (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))).toFixed(1);
+            
+            document.getElementById('v-dist').innerText = dist + " km";
+            
+            // Prices
+            document.getElementById('cost-bike').innerText = Math.round(25 + (dist * 8));
+            document.getElementById('cost-auto').innerText = Math.round(40 + (dist * 12));
+            document.getElementById('cost-cab').innerText = Math.round(60 + (dist * 15));
+            
+            // Default Auto
+            document.getElementById('v-price').innerText = "₹" + Math.round(40 + (dist * 12));
         }
 
-        function calculatePrices(km) {
-            // Logic: Base + (Rate * Km)
-            document.getElementById('price-bike').innerText = Math.round(20 + (8 * km));
-            document.getElementById('price-auto').innerText = Math.round(30 + (12 * km));
-            document.getElementById('price-cab').innerText = Math.round(50 + (15 * km));
+        // 5. BOOKING
+        window.selectRide = (type) => {
+            selectedVehicle = type;
+            const price = document.getElementById('cost-'+type).innerText;
+            document.getElementById('v-price').innerText = "₹" + price;
+            
+            // Highlight styling
+            document.querySelectorAll('.ride-opt').forEach(el => el.classList.remove('border-black', 'bg-yellow-50'));
+            event.currentTarget.classList.add('border-black', 'bg-yellow-50');
         }
 
-        // 5. BOOKING & DATABASE INTERACTION (The End-to-End Logic)
-        
-        window.selectVehicle = (type, el) => {
-            selectedType = type;
-            // Visual feedback logic can be added here
-            document.querySelectorAll('#vehicle-sheet .border-black').forEach(e => {
-                e.classList.remove('border-black', 'bg-yellow-50');
-                e.classList.add('border-gray-200');
-            });
-            el.classList.add('border-black', 'bg-yellow-50');
-            el.classList.remove('border-gray-200');
-        };
-
-        window.bookRide = () => {
-            // 1. UI Updates
-            document.getElementById('vehicle-sheet').classList.remove('active');
-            document.getElementById('status-sheet').classList.add('active');
-
-            // 2. Get QR Data (If available from URL, else broad search)
-            const params = new URLSearchParams(window.location.search);
-            const specificDriver = params.get('driverId') || 'any';
-
-            // 3. Create Ride in Firebase
-            const rideRef = push(ref(db, 'rides'));
-            currentRideId = rideRef.key;
-
-            const rideData = {
-                rideId: currentRideId,
-                passenger: {
-                    name: userProfile.name,
-                    phone: userProfile.phone,
-                    id: userProfile.id
-                },
-                driverId: specificDriver, // 'any' or specific ID
-                status: 'pending',
-                pickup: currentLoc,
+        window.bookNow = () => {
+            document.getElementById('vehicle-sheet').classList.remove('open');
+            document.getElementById('status-sheet').classList.add('open');
+            
+            const user = JSON.parse(localStorage.getItem('zayra_user'));
+            
+            const newRide = push(ref(db, 'rides'));
+            currentRideId = newRide.key;
+            
+            set(newRide, {
+                passenger: user,
+                pickup: myLoc,
                 drop: dropLoc,
-                dropAddress: document.getElementById('drop-input').value,
-                vehicleType: selectedType,
-                fare: document.getElementById(`price-${selectedType}`).innerText,
-                timestamp: Date.now(),
-                otp: Math.floor(1000 + Math.random() * 9000)
-            };
+                vehicle: selectedVehicle,
+                status: 'pending',
+                timestamp: Date.now()
+            });
 
-            set(rideRef, rideData);
-            document.getElementById('ride-otp').innerText = rideData.otp;
-
-            // 4. Listen for Driver Response
-            listenToRide(currentRideId);
-        };
-
-        function listenToRide(rideId) {
-            const rideStatusRef = ref(db, `rides/${rideId}`);
-            onValue(rideStatusRef, (snapshot) => {
-                const data = snapshot.val();
-                if (!data) return;
-
-                if (data.status === 'accepted') {
-                    // Driver Accepted!
-                    document.getElementById('status-text').innerText = "Driver is arriving!";
-                    document.getElementById('status-text').classList.add('text-green-600');
-                    
-                    // Show Driver Details
-                    document.getElementById('driver-info').classList.remove('hidden');
-                    
-                    if (data.driverDetails) {
-                        document.getElementById('d-name').innerText = data.driverDetails.name;
-                        document.getElementById('d-vehicle').innerText = data.driverDetails.vehicle || "Vehicle Info";
-                    }
+            // Listen for Driver Accept
+            onValue(ref(db, 'rides/' + currentRideId), (snap) => {
+                const data = snap.val();
+                if(data && data.status === 'accepted') {
+                    document.querySelector('#status-sheet h2').innerText = "Driver Arriving!";
+                    document.querySelector('#status-sheet p').innerText = "Meet at pickup point";
+                    document.querySelector('.loader').style.display = 'none';
+                    document.getElementById('driver-details').classList.remove('hidden');
                 }
             });
         }
 
         window.cancelRide = () => {
-            if(confirm("Are you sure?")) {
-                if(currentRideId) remove(ref(db, `rides/${currentRideId}`));
+            if(confirm("Cancel ride?")) {
+                if(currentRideId) remove(ref(db, 'rides/' + currentRideId));
                 location.reload();
             }
-        };
-
-        // EXPOSE TO WINDOW
-        window.initMap = initMap;
+        }
     </script>
 </body>
 </html>
