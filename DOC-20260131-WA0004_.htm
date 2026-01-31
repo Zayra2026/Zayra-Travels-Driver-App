@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zayra - Book Ride</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #eee; }
+        #map { height: 55vh; width: 100%; }
+
+        /* Bottom Control Panel */
+        .bottom-panel {
+            height: 45vh;
+            background: white;
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 -4px 15px rgba(0,0,0,0.2);
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+
+        h2, h3 { margin: 5px 0; }
+        .input-group { margin: 15px 0; }
+        
+        label { font-size: 12px; color: gray; display: block; margin-bottom: 5px; }
+        
+        /* Fare Input Styling */
+        .fare-box {
+            display: flex;
+            align-items: center;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px solid #ddd;
+        }
+        .currency { font-size: 20px; font-weight: bold; margin-right: 5px; }
+        input[type="number"] {
+            border: none;
+            background: transparent;
+            font-size: 22px;
+            font-weight: bold;
+            width: 100%;
+            outline: none;
+        }
+
+        /* Buttons */
+        .btn-main {
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            border: none;
+            border-radius: 10px;
+            background: black;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .btn-green { background: #28a745; margin-top: 10px; }
+        .btn-red { background: #dc3545; margin-top: 10px; }
+        
+        /* Status States */
+        .hidden { display: none; }
+        .status-msg { 
+            padding: 10px; 
+            border-radius: 5px; 
+            text-align: center; 
+            margin-bottom: 10px; 
+            font-weight: bold; 
+        }
+        .bg-yellow { background: #fff3cd; color: #856404; }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+
+    <div class="bottom-panel">
+        
+        <div id="booking-form">
+            <h2>Where to?</h2>
+            <p style="font-size: 13px; color: gray;">Tap on map to set Drop Location</p>
+            
+            <div class="input-group">
+                <label>OFFER YOUR FARE (₹) - Cash Only</label>
+                <div class="fare-box">
+                    <span class="currency">₹</span>
+                    <input type="number" id="offer-fare" value="50">
+                </div>
+                <p id="dist-display" style="font-size: 12px; color: blue; margin-top: 5px;">0 km</p>
+            </div>
+
+            <button class="btn-main" onclick="requestRide()">REQUEST RIDE</button>
+        </div>
+
+        <div id="waiting-screen" class="hidden">
+            <h2 id="status-title">Requesting...</h2>
+            <div id="status-message" class="status-msg bg-yellow">Waiting for Driver Response...</div>
+            <div id="counter-offer-box" class="hidden">
+                <h3>Driver asks for more:</h3>
+                <h1 id="driver-ask-price">₹0</h1>
+                <button class="btn-main btn-green" onclick="acceptCounterOffer()">ACCEPT NEW PRICE</button>
+                <button class="btn-main btn-red" onclick="cancelRide()">CANCEL</button>
+            </div>
+            <button id="cancel-wait-btn" class="btn-main btn-red" onclick="cancelRide()">CANCEL REQUEST</button>
+        </div>
+
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, push, set, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAAMshTP9HgrB27FuLNP4CZN6VJKPDW8CQ",
+            authDomain: "zayra-travels.firebaseapp.com",
+            databaseURL: "https://zayra-travels-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "zayra-travels",
+            storageBucket: "zayra-travels.firebasestorage.app",
+            messagingSenderId: "124448306082",
+            appId: "1:124448306082:web:cf5943d8592bc68b9c38fb"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // --- Logic Start ---
+        
+        let map, pickupMarker, dropMarker;
+        let pickupCoords = { lat: 28.6139, lng: 77.2090 }; // Default Delhi
+        let dropCoords = null;
+        let currentRideId = null;
+
+        // URL se Driver ID nikalo
+        const urlParams = new URLSearchParams(window.location.search);
+        const driverId = urlParams.get('id');
+
+        if (!driverId) alert("Invalid QR Code! No Driver ID found.");
+
+        // 1. Initialize Map
+        function initMap() {
+            map = L.map('map').setView([pickupCoords.lat, pickupCoords.lng], 14);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+
+            // Get Current Location of User
+            if(navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(pos => {
+                    pickupCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                    map.setView(pickupCoords, 15);
+                    pickupMarker = L.marker(pickupCoords).addTo(map).bindPopup("You are here").openPopup();
+                });
+            }
+
+            // Click to set Drop Location
+            map.on('click', function(e) {
+                if (dropMarker) map.removeLayer(dropMarker);
+                dropCoords = { lat: e.latlng.lat, lng: e.latlng.lng };
+                dropMarker = L.marker([dropCoords.lat, dropCoords.lng], {icon: redIcon}).addTo(map);
+                
+                // Calculate Fare
+                calculateFare();
+            });
+        }
+
+        // Custom Red Icon for Drop
+        const redIcon = new L.Icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34]
+        });
+
+        // 2. Fare Calculation (Basic Logic)
+        function calculateFare() {
+            if(!pickupCoords || !dropCoords) return;
+            
+            // Haversine Formula for Distance
+            const R = 6371; // Earth radius in km
+            const dLat = (dropCoords.lat - pickupCoords.lat) * Math.PI / 180;
+            const dLon = (dropCoords.lng - pickupCoords.lng) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(pickupCoords.lat * Math.PI / 180) * Math.cos(dropCoords.lat * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            const distance = (R * c).toFixed(2); // Distance in KM
+
+            // Pricing: Base ₹30 + ₹15 per km
+            let price = Math.round(30 + (distance * 15));
+            if(price < 40) price = 40; // Minimum fare
+
+            document.getElementById("offer-fare").value = price;
+            document.getElementById("dist-display").innerText = `Distance: ${distance} km (Est.)`;
+        }
+
+        // 3. Request Ride (Create Entry in Firebase)
+        window.requestRide = function() {
+            if(!dropCoords) { alert("Please tap on map to select Drop Location first!"); return; }
+            if(!driverId) { alert("Driver not found!"); return; }
+
+            const offeredPrice = document.getElementById("offer-fare").value;
+
+            // UI Switch
+            document.getElementById("booking-form").classList.add("hidden");
+            document.getElementById("waiting-screen").classList.remove("hidden");
+
+            // Create Ride in Firebase
+            const ridesRef = ref(db, 'rides');
+            const newRideRef = push(ridesRef);
+            currentRideId = newRideRef.key;
+
+            set(newRideRef, {
+                driverId: driverId,
+                status: 'pending', // pending -> accepted -> rejected -> counter_offer
+                pickup: pickupCoords,
+                drop: dropCoords,
+                fare: offeredPrice,
+                paymentMode: 'CASH',
+                timestamp: Date.now()
+            });
+
+            // Start Monitoring
+            monitorRideStatus();
+        }
+
+        // 4. Monitor Ride Status (Real-time)
+        function monitorRideStatus() {
+            const rideRef = ref(db, 'rides/' + currentRideId);
+            
+            onValue(rideRef, (snapshot) => {
+                const data = snapshot.val();
+                if(!data) return;
+
+                const title = document.getElementById("status-title");
+                const msg = document.getElementById("status-message");
+
+                if (data.status === 'accepted') {
+                    title.innerText = "Ride Confirmed! 🚖";
+                    msg.innerText = "Driver has accepted your request. Coming to pick you up.";
+                    msg.style.background = "#d4edda"; 
+                    msg.style.color = "#155724";
+                    document.getElementById("cancel-wait-btn").classList.add("hidden");
+                } 
+                else if (data.status === 'rejected') {
+                    title.innerText = "Request Rejected ❌";
+                    msg.innerText = "Driver declined. Please try another cab nearby.";
+                    msg.style.background = "#f8d7da";
+                    msg.style.color = "#721c24";
+                }
+                else if (data.status === 'counter_offer') {
+                    title.innerText = "Fare Negotiation 💬";
+                    msg.classList.add("hidden"); // Hide default msg
+                    document.getElementById("counter-offer-box").classList.remove("hidden");
+                    document.getElementById("driver-ask-price").innerText = "₹" + data.fare; // Updated fare
+                    document.getElementById("cancel-wait-btn").classList.add("hidden");
+                }
+            });
+        }
+
+        // 5. Handle Counter Offer
+        window.acceptCounterOffer = function() {
+            // Update status to accepted in DB
+            const rideRef = ref(db, 'rides/' + currentRideId);
+            update(rideRef, { status: "accepted" });
+            
+            // Hide negotiation box
+            document.getElementById("counter-offer-box").classList.add("hidden");
+        }
+
+        window.cancelRide = function() {
+            if(currentRideId) {
+                const rideRef = ref(db, 'rides/' + currentRideId);
+                remove(rideRef); // Delete request
+            }
+            location.reload(); // Refresh page
+        }
+
+        // Init
+        initMap();
+
+    </script>
+</body>
+</html>
