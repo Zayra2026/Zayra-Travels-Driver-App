@@ -3,123 +3,79 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Zayra Cabs - Pro</title>
+    <title>Zayra Cabs - Ultimate</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <style>
-        /* --- CSS: Professional UI (Ola/Uber Style) --- */
-        body { margin: 0; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f2f2f2; overflow: hidden; }
+        :root { --primary: #F1C40F; --black: #2d2d2d; --red: #e74c3c; --green: #2ecc71; }
+        body { margin: 0; font-family: 'Inter', sans-serif; background: #fff; overflow: hidden; height: 100vh; }
         
-        /* 1. Map Layer */
-        #map { height: 100vh; width: 100%; z-index: 1; }
+        /* MAP LAYER (Clean Google-like) */
+        #map { height: 100%; width: 100%; z-index: 1; }
+        .leaflet-control-attribution { display: none; }
 
-        /* 2. Top Search Bar (Floating) */
+        /* UI LAYER */
+        .ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 999; pointer-events: none; }
+        .interactive { pointer-events: auto; }
+
+        /* 1. TOP SEARCH BAR */
         .search-container {
-            position: absolute;
-            top: 20px;
-            left: 5%;
-            width: 90%;
-            z-index: 1000;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-            padding: 15px;
-            transition: all 0.3s ease;
+            position: absolute; top: 50px; left: 15px; right: 15px;
+            background: white; border-radius: 12px; padding: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1); pointer-events: auto;
         }
-
-        .input-row { display: flex; align-items: center; margin-bottom: 10px; position: relative; }
-        .input-row:last-child { margin-bottom: 0; }
+        .input-group { display: flex; align-items: center; margin-bottom: 10px; position: relative; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; margin-right: 12px; flex-shrink: 0; }
+        .line { position: absolute; left: 3px; top: 20px; height: 20px; border-left: 1px dashed #ccc; }
+        input { border: none; width: 100%; font-size: 14px; font-weight: 600; outline: none; background: #f9f9f9; padding: 8px; border-radius: 5px; }
         
-        .dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 10px; }
-        .green-dot { background: #28a745; }
-        .red-dot { background: #dc3545; }
-        .line-connect { position: absolute; left: 4px; top: 20px; height: 25px; border-left: 2px dashed #ddd; }
-
-        input {
-            width: 100%;
-            border: none;
-            background: #f3f4f6;
-            padding: 12px;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 500;
-            outline: none;
+        /* 2. MENU & PROFILE */
+        .menu-btn { position: absolute; top: 15px; left: 15px; background: white; padding: 8px; border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.1); cursor: pointer; pointer-events: auto; }
+        .sidebar {
+            position: fixed; top: 0; left: -100%; width: 75%; height: 100%; background: white;
+            z-index: 2000; transition: 0.3s; padding: 20px; box-shadow: 2px 0 20px rgba(0,0,0,0.1); pointer-events: auto;
         }
-        input:focus { background: #fff; box-shadow: 0 0 0 2px black; }
-
-        /* 3. Search Suggestions List */
-        #suggestions-list {
-            position: absolute;
-            top: 130px;
-            left: 5%;
-            width: 90%;
-            background: white;
-            z-index: 1001;
-            border-radius: 0 0 10px 10px;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-            max-height: 200px;
-            overflow-y: auto;
-            display: none;
-        }
-        .suggestion-item {
-            padding: 12px;
-            border-bottom: 1px solid #eee;
-            cursor: pointer;
-            font-size: 13px;
-            display: flex;
-            align-items: center;
-        }
-        .suggestion-item i { margin-right: 10px; color: gray; }
-
-        /* 4. Bottom Selection Sheet */
+        .sidebar.open { left: 0; }
+        .profile-sec { display: flex; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 20px; }
+        
+        /* 3. BOTTOM SHEETS */
         .bottom-sheet {
-            position: absolute;
-            bottom: -100%; /* Hidden initially */
-            left: 0;
-            width: 100%;
-            background: white;
-            z-index: 1002;
-            border-top-left-radius: 20px;
-            border-top-right-radius: 20px;
-            box-shadow: 0 -5px 20px rgba(0,0,0,0.2);
-            padding: 20px;
-            box-sizing: border-box;
-            transition: bottom 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+            position: absolute; bottom: 0; left: 0; width: 100%; background: white;
+            border-top-left-radius: 20px; border-top-right-radius: 20px; padding: 20px;
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.1); box-sizing: border-box;
+            transform: translateY(120%); transition: 0.3s; pointer-events: auto; max-height: 80vh; overflow-y: auto;
         }
-        .sheet-active { bottom: 0; }
+        .sheet-active { transform: translateY(0); }
 
-        .vehicle-options { display: flex; justify-content: space-between; margin: 20px 0; }
-        .vehicle-card {
-            border: 1px solid #eee;
-            border-radius: 10px;
-            padding: 10px;
-            text-align: center;
-            width: 30%;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        .vehicle-card.selected { border: 2px solid black; background: #fffef0; }
-        .vehicle-img { width: 50px; height: 30px; object-fit: contain; margin-bottom: 5px; }
-        .price-text { font-weight: bold; font-size: 14px; }
-        .time-text { font-size: 10px; color: gray; }
+        /* BOOKING CARD (QR SCANNED) */
+        .driver-preview { display: flex; align-items: center; background: #fffbe6; padding: 10px; border-radius: 8px; border: 1px solid #ffe58f; margin-bottom: 15px; }
+        .price-negotiate { margin: 15px 0; padding: 10px; background: #f8f9fa; border-radius: 10px; }
+        input[type=range] { width: 100%; accent-color: var(--black); }
 
-        .btn-confirm {
-            width: 100%;
-            background: black;
-            color: white;
-            padding: 15px;
-            font-size: 18px;
-            font-weight: bold;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-        }
+        /* LIVE RIDE SCREEN */
+        .ride-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .otp-box { background: var(--black); color: white; padding: 5px 10px; border-radius: 5px; font-weight: bold; font-size: 14px; }
+        .driver-profile { display: flex; align-items: center; gap: 15px; }
+        .driver-img { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 2px solid var(--primary); }
+        .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
+        .action-btn { padding: 10px; border-radius: 8px; border: 1px solid #eee; text-align: center; font-size: 12px; cursor: pointer; }
         
-        /* 5. Loader */
-        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #3498db; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: none; margin-left: 10px;}
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        /* CANCELLATION MODAL */
+        .cancel-modal {
+            position: fixed; bottom: -100%; left: 0; width: 100%; background: white; z-index: 3000;
+            padding: 20px; border-top-left-radius: 20px; border-top-right-radius: 20px; transition: 0.3s;
+        }
+        .cancel-option { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; cursor: pointer; }
+
+        /* COMMON */
+        .btn { width: 100%; padding: 15px; border: none; border-radius: 10px; font-weight: 700; font-size: 16px; cursor: pointer; margin-top: 10px; }
+        .btn-yellow { background: var(--primary); color: black; }
+        .btn-red { background: #ffebee; color: var(--red); }
+        .ad-banner { margin-top: 15px; background: #e0e0e0; height: 60px; display: flex; align-items: center; justify-content: center; border-radius: 8px; color: gray; font-size: 12px; }
+        .loader { width: 100%; text-align: center; color: var(--primary); font-weight: bold; margin: 10px 0; display: none; }
 
     </style>
 </head>
@@ -127,62 +83,119 @@
 
     <div id="map"></div>
 
-    <div class="search-container">
-        <div class="input-row">
-            <div class="dot green-dot"></div>
-            <div class="line-connect"></div>
-            <input type="text" id="pickup-input" placeholder="Detecting location..." readonly>
-            <div class="loader" id="pickup-loader"></div>
-        </div>
-        <div class="input-row">
-            <div class="dot red-dot"></div>
-            <input type="text" id="drop-input" placeholder="Enter drop location (e.g., Red Fort)" onkeyup="searchAddress(this.value)">
-            <i class="ri-search-line" style="position: absolute; right: 15px; color: gray;"></i>
-        </div>
-    </div>
-
-    <div id="suggestions-list"></div>
-
-    <div class="bottom-sheet" id="ride-selector">
-        <h3 style="margin: 0; font-size: 16px; color: #555;">Available Rides</h3>
-        <p style="font-size: 12px; color: green;">Cash payments only</p>
+    <div class="ui-layer">
         
-        <div class="vehicle-options">
-            <div class="vehicle-card selected" onclick="selectVehicle('bike', 15)">
-                <img src="https://cdn-icons-png.flaticon.com/512/3082/3082383.png" class="vehicle-img">
-                <div class="price-text" id="price-bike">₹45</div>
-                <div class="time-text">3 min</div>
-                <div style="font-size:10px;">Bike</div>
+        <div class="menu-btn interactive" onclick="toggleSidebar()"><i class="ri-menu-2-line"></i></div>
+        
+        <div class="sidebar" id="sidebar">
+            <div class="profile-sec">
+                <div style="width: 50px; height: 50px; background: #eee; border-radius: 50%; display:flex; align-items:center; justify-content:center; margin-right:10px;"><i class="ri-user-line"></i></div>
+                <div>
+                    <h3 style="margin:0;">Danish Khan</h3>
+                    <small>+91 8445971997</small>
+                </div>
             </div>
-            <div class="vehicle-card" onclick="selectVehicle('auto', 25)">
-                <img src="https://cdn-icons-png.flaticon.com/512/2555/2555013.png" class="vehicle-img">
-                <div class="price-text" id="price-auto">₹65</div>
-                <div class="time-text">5 min</div>
-                <div style="font-size:10px;">Auto</div>
+            <p><i class="ri-history-line"></i> Your Rides</p>
+            <p><i class="ri-wallet-3-line"></i> Payments</p>
+            <p><i class="ri-customer-service-line"></i> Support</p>
+            <p style="color:red; cursor:pointer;" onclick="toggleSidebar()">Close Menu</p>
+        </div>
+
+        <div class="search-container interactive" id="search-box">
+            <div class="input-group">
+                <div class="dot" style="background:green;"></div>
+                <div class="line"></div>
+                <input type="text" id="pickup" value="Detecting location..." readonly onclick="alert('Pickup is locked to Driver Location')">
             </div>
-            <div class="vehicle-card" onclick="selectVehicle('cab', 40)">
-                <img src="https://cdn-icons-png.flaticon.com/512/2554/2554936.png" class="vehicle-img">
-                <div class="price-text" id="price-cab">₹110</div>
-                <div class="time-text">8 min</div>
-                <div style="font-size:10px;">Cab</div>
+            <div class="input-group">
+                <div class="dot" style="background:red;"></div>
+                <input type="text" id="drop" placeholder="Enter Drop Location" onfocus="showHistory()">
+                <i class="ri-map-pin-add-line" style="margin-left:10px; color:gray;" onclick="alert('Select on Map mode')"></i>
             </div>
         </div>
 
-        <button class="btn-confirm" onclick="requestRide()">BOOK RIDE</button>
-    </div>
+        <div class="bottom-sheet" id="history-sheet">
+            <h3>Recent Destinations</h3>
+            <div class="cancel-option" onclick="setDrop('Vegas Mall, Dwarka')"><i class="ri-history-line"></i> Vegas Mall, Dwarka</div>
+            <div class="cancel-option" onclick="setDrop('Sector 21 Metro Station')"><i class="ri-history-line"></i> Sector 21 Metro</div>
+            <div class="cancel-option" onclick="setDrop('Indira Gandhi Airport')"><i class="ri-history-line"></i> IGI Airport T3</div>
+            <button class="btn" style="background:#eee" onclick="hideHistory()">Close</button>
+        </div>
 
-    <div class="bottom-sheet" id="status-sheet" style="text-align: center;">
-        <h2>Connecting to Drivers...</h2>
-        <div style="margin: 20px; color: #555;">Please wait while we find a nearby driver.</div>
-        <button class="btn-confirm" style="background: #dc3545;" onclick="cancelRequest()">CANCEL</button>
+        <div class="bottom-sheet" id="booking-sheet">
+            <div class="driver-preview">
+                <img src="https://cdn-icons-png.flaticon.com/512/2555/2555013.png" width="40" id="v-icon">
+                <div style="margin-left: 10px;">
+                    <div style="font-weight:bold;" id="v-name">Bajaj Auto</div>
+                    <div style="font-size:12px; color:gray;" id="v-plate">DL-1R-XXXX</div>
+                </div>
+                <div style="margin-left:auto; font-weight:bold;">4 mins away</div>
+            </div>
+
+            <div class="price-negotiate">
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                    <span>Offer Price</span>
+                    <span style="font-weight:bold; font-size:18px;">₹<span id="final-price">0</span></span>
+                </div>
+                <input type="range" min="0" max="50" value="0" step="10" oninput="updatePrice(this.value)">
+                <div style="font-size:10px; color:gray; display:flex; justify-content:space-between;">
+                    <span>Fair Price</span>
+                    <span>Faster Pickup (+₹50)</span>
+                </div>
+            </div>
+
+            <div class="loader" id="loader">SEARCHING NEARBY DRIVERS...</div>
+            <button class="btn btn-yellow" onclick="confirmBooking()">BOOK NOW</button>
+        </div>
+
+        <div class="bottom-sheet" id="ride-sheet">
+            <div class="ride-header">
+                <div>
+                    <span style="color:green; font-weight:bold;">Arriving in 2 mins</span><br>
+                    <small>On the way to pickup</small>
+                </div>
+                <div class="otp-box">OTP: 4589</div>
+            </div>
+            
+            <div class="driver-profile">
+                <img src="https://randomuser.me/api/portraits/men/32.jpg" class="driver-img">
+                <div>
+                    <h3 style="margin:0;">Raju Bhai</h3>
+                    <small>White Dzire • DL-1R-8899</small><br>
+                    <small>⭐ 4.8 Rating</small>
+                </div>
+            </div>
+
+            <div class="action-grid">
+                <div class="action-btn" onclick="shareLocation()"><i class="ri-whatsapp-line" style="color:green; font-size:20px;"></i><br>Share Trip</div>
+                <div class="action-btn" style="color:red;" onclick="showCancel()"><i class="ri-close-circle-line" style="font-size:20px;"></i><br>Cancel</div>
+                <div class="action-btn"><i class="ri-phone-line" style="color:blue; font-size:20px;"></i><br>Call Driver</div>
+                <div class="action-btn" style="background:#ffebee; color:red; border:none;" onclick="alert('SOS Alert Sent to Police!')"><i class="ri-alarm-warning-line" style="font-size:20px;"></i><br>SOS</div>
+            </div>
+
+            <div class="ad-banner">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/4/47/Zomato_logo.svg" height="20" style="margin-right:10px;">
+                Get 50% off on your next meal
+            </div>
+        </div>
+
+        <div class="cancel-modal" id="cancel-modal">
+            <h3>Why do you want to cancel?</h3>
+            <div class="cancel-option" onclick="cancelRide('Found better price')">Found better price elsewhere</div>
+            <div class="cancel-option" onclick="cancelRide('Driver asking cash')">Driver asking for extra cash</div>
+            <div class="cancel-option" onclick="cancelRide('Changed plans')">Change of plans</div>
+            <div class="cancel-option" onclick="cancelRide('Other')">Other</div>
+            <button class="btn btn-red" style="margin-top:10px;" onclick="closeCancel()">Don't Cancel</button>
+        </div>
+
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, push, set, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getDatabase, ref, push, set, onValue, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-        // FIREBASE CONFIG (Aapka wala)
+        // FIREBASE CONFIG
         const firebaseConfig = {
             apiKey: "AIzaSyAAMshTP9HgrB27FuLNP4CZN6VJKPDW8CQ",
             authDomain: "zayra-travels.firebaseapp.com",
@@ -192,205 +205,139 @@
             messagingSenderId: "124448306082",
             appId: "1:124448306082:web:cf5943d8592bc68b9c38fb"
         };
-
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // --- STATE VARIABLES ---
-        let map;
-        let pickupCoords = null;
-        let dropCoords = null;
-        let pickupAddress = "";
-        let dropAddress = "";
-        let currentRideId = null;
-        let selectedVehicleType = 'bike';
-        let currentDistance = 0;
-        let markers = [];
+        // VARS
+        let map, basePrice = 50, currentPrice = 50;
+        let qrData = { id: 'unknown', type: 'auto', plate: 'Unknown' };
 
-        // --- 1. INITIALIZE MAP & GET CURRENT LOCATION ---
+        // 1. INIT
+        window.onload = function() {
+            initMap();
+            checkQR();
+        };
+
         function initMap() {
-            // Delhi Center
-            map = L.map('map', { zoomControl: false }).setView([28.6139, 77.2090], 13);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM' }).addTo(map);
+            // Using CartoDB Positron for "Clean Google-like" look
+            map = L.map('map', { zoomControl: false }).setView([28.6139, 77.2090], 14);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                attribution: ''
+            }).addTo(map);
 
-            // Auto-detect User Location
             if(navigator.geolocation) {
-                document.getElementById('pickup-loader').style.display = 'block';
-                navigator.geolocation.getCurrentPosition(async (pos) => {
+                navigator.geolocation.getCurrentPosition(pos => {
                     const lat = pos.coords.latitude;
                     const lng = pos.coords.longitude;
-                    pickupCoords = { lat, lng };
-                    
-                    // Add Marker
-                    addMarker(lat, lng, 'green');
                     map.setView([lat, lng], 16);
-
-                    // REVERSE GEOCODING (Lat/Lng -> Address Name)
-                    const addr = await getAddressFromCoords(lat, lng);
-                    pickupAddress = addr;
-                    document.getElementById('pickup-input').value = addr;
-                    document.getElementById('pickup-loader').style.display = 'none';
-
-                }, (err) => {
-                    alert("Location access denied. Please enable GPS.");
+                    
+                    // User Marker
+                    L.marker([lat, lng]).addTo(map).bindPopup("You are here").openPopup();
+                    
+                    // Update Pickup Text
+                    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+                    .then(r=>r.json()).then(d => {
+                        document.getElementById('pickup').value = d.display_name.split(',')[0];
+                    });
                 });
             }
         }
 
-        // --- 2. ADDRESS SEARCH (Nominatim API - Free) ---
-        let debounceTimer;
-        window.searchAddress = function(query) {
-            clearTimeout(debounceTimer);
-            if(query.length < 3) return;
-
-            // Wait 500ms before calling API (to avoid rate limits)
-            debounceTimer = setTimeout(async () => {
-                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${query}&viewbox=76.8,28.9,77.7,28.3&bounded=1`; // Delhi NCR bound
-                try {
-                    const res = await fetch(url);
-                    const data = await res.json();
-                    showSuggestions(data);
-                } catch(e) { console.error(e); }
-            }, 500);
-        }
-
-        function showSuggestions(data) {
-            const list = document.getElementById('suggestions-list');
-            list.innerHTML = "";
-            list.style.display = 'block';
-
-            data.forEach(place => {
-                const div = document.createElement('div');
-                div.className = 'suggestion-item';
-                div.innerHTML = `<i class="ri-map-pin-line"></i> ${place.display_name.substring(0, 40)}...`;
-                div.onclick = () => selectDropLocation(place);
-                list.appendChild(div);
-            });
-        }
-
-        function selectDropLocation(place) {
-            // Hide list
-            document.getElementById('suggestions-list').style.display = 'none';
-            document.getElementById('drop-input').value = place.display_name;
-            dropAddress = place.display_name;
+        // 2. LOGIC: QR SCAN HANDLING
+        function checkQR() {
+            const params = new URLSearchParams(window.location.search);
+            // Example URL: ?driverId=123&type=auto&plate=DL1R5555
             
-            dropCoords = { lat: parseFloat(place.lat), lng: parseFloat(place.lon) };
+            if(params.has('driverId')) {
+                qrData.id = params.get('driverId');
+                qrData.type = params.get('type') || 'cab';
+                qrData.plate = params.get('plate') || 'DL-TEMP';
 
-            // Add Marker and Fit Bounds
-            addMarker(dropCoords.lat, dropCoords.lng, 'red');
-            const group = new L.featureGroup(markers);
-            map.fitBounds(group.getBounds(), { padding: [50, 50] });
-
-            // Calculate Distance & Price
-            calculateEstimates();
-            
-            // Show Vehicle Selector
-            document.getElementById('ride-selector').classList.add('sheet-active');
-        }
-
-        // --- 3. UTILS & CALCULATION ---
-        
-        async function getAddressFromCoords(lat, lng) {
-            try {
-                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
-                const data = await res.json();
-                return data.display_name.split(",")[0] + ", " + data.display_name.split(",")[1]; // Short address
-            } catch { return "Unknown Location"; }
-        }
-
-        function addMarker(lat, lng, color) {
-            const iconUrl = color === 'green' 
-                ? 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png'
-                : 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png';
-            
-            const marker = L.marker([lat, lng], {
-                icon: new L.Icon({ iconUrl: iconUrl, iconSize: [25, 41], iconAnchor: [12, 41] })
-            }).addTo(map);
-            markers.push(marker);
-        }
-
-        function calculateEstimates() {
-            if(!pickupCoords || !dropCoords) return;
-            
-            // Haversine Distance
-            const R = 6371; 
-            const dLat = (dropCoords.lat - pickupCoords.lat) * Math.PI / 180;
-            const dLon = (dropCoords.lng - pickupCoords.lng) * Math.PI / 180;
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                      Math.cos(pickupCoords.lat * Math.PI / 180) * Math.cos(dropCoords.lat * Math.PI / 180) *
-                      Math.sin(dLon/2) * Math.sin(dLon/2);
-            const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            
-            currentDistance = dist.toFixed(1);
-
-            // Update Prices in UI (Base + rate/km)
-            document.getElementById('price-bike').innerText = "₹" + Math.round(20 + (dist * 10));
-            document.getElementById('price-auto').innerText = "₹" + Math.round(30 + (dist * 15));
-            document.getElementById('price-cab').innerText  = "₹" + Math.round(50 + (dist * 20));
-        }
-
-        // Selection Logic
-        window.selectVehicle = function(type, rate) {
-            selectedVehicleType = type;
-            // Visual Update
-            document.querySelectorAll('.vehicle-card').forEach(el => el.classList.remove('selected'));
-            event.currentTarget.classList.add('selected');
-        }
-
-        // --- 4. BOOKING LOGIC (Firebase) ---
-
-        window.requestRide = function() {
-            if(!pickupCoords || !dropCoords) return alert("Select locations first");
-            
-            // UI Change
-            document.getElementById('ride-selector').classList.remove('sheet-active');
-            document.getElementById('status-sheet').classList.add('sheet-active');
-
-            // Find price based on selection
-            let price = 0;
-            if(selectedVehicleType === 'bike') price = document.getElementById('price-bike').innerText;
-            if(selectedVehicleType === 'auto') price = document.getElementById('price-auto').innerText;
-            if(selectedVehicleType === 'cab') price = document.getElementById('price-cab').innerText;
-
-            // Send to Firebase
-            const ridesRef = ref(db, 'rides');
-            const newRide = push(ridesRef);
-            currentRideId = newRide.key;
-
-            // Driver ID URL se lo (Testing ke liye)
-            const urlParams = new URLSearchParams(window.location.search);
-            const driverId = urlParams.get('id');
-
-            set(newRide, {
-                status: 'pending',
-                passengerId: 'user_' + Math.floor(Math.random()*1000),
-                driverId: driverId || 'any', // Agar QR se nahi aya to 'any'
-                pickup: pickupCoords,
-                drop: dropCoords,
-                pickupAddress: pickupAddress,
-                dropAddress: dropAddress,
-                vehicle: selectedVehicleType,
-                fare: price.replace('₹', ''),
-                timestamp: Date.now()
-            });
-
-            // Listen for status
-            onValue(ref(db, 'rides/' + currentRideId), (snap) => {
-                const data = snap.val();
-                if(data && data.status === 'accepted') {
-                    alert("✅ Driver Accepted! Ride Started.");
-                    document.getElementById('status-sheet').innerHTML = "<h2>Driver is coming!</h2><h3>Vehicle No: DL-5S-1234</h3>";
+                // Setup Booking UI directly
+                document.getElementById('v-name').innerText = qrData.type.toUpperCase();
+                document.getElementById('v-plate').innerText = qrData.plate;
+                
+                // Icon Logic
+                if(qrData.type === 'bike') {
+                    document.getElementById('v-icon').src = "https://cdn-icons-png.flaticon.com/512/3082/3082383.png";
+                    basePrice = 30;
+                } else if(qrData.type === 'auto') {
+                    document.getElementById('v-icon').src = "https://cdn-icons-png.flaticon.com/512/2555/2555013.png";
+                    basePrice = 50;
+                } else {
+                    document.getElementById('v-icon').src = "https://cdn-icons-png.flaticon.com/512/2554/2554936.png";
+                    basePrice = 100;
                 }
-            });
+                updatePrice(0);
+            }
         }
 
-        window.cancelRequest = function() {
-            if(currentRideId) remove(ref(db, 'rides/' + currentRideId));
-            window.location.reload();
+        // 3. UI FUNCTIONS
+        window.showHistory = function() {
+            document.getElementById('history-sheet').classList.add('sheet-active');
+        }
+        window.hideHistory = function() {
+            document.getElementById('history-sheet').classList.remove('sheet-active');
+        }
+        window.setDrop = function(loc) {
+            document.getElementById('drop').value = loc;
+            hideHistory();
+            // Show Booking Sheet if driver is known
+            if(qrData.id !== 'unknown') {
+                document.getElementById('booking-sheet').classList.add('sheet-active');
+            } else {
+                alert("Please Scan QR Code of the Vehicle first!");
+            }
         }
 
-        // Initialize
-        initMap();
+        window.updatePrice = function(val) {
+            currentPrice = basePrice + parseInt(val);
+            document.getElementById('final-price').innerText = currentPrice;
+        }
+
+        window.confirmBooking = function() {
+            document.getElementById('loader').style.display = 'block';
+            
+            // Simulate API Call delay
+            setTimeout(() => {
+                document.getElementById('loader').style.display = 'none';
+                document.getElementById('booking-sheet').classList.remove('sheet-active');
+                document.getElementById('search-box').style.display = 'none'; // Hide search
+                document.getElementById('ride-sheet').classList.add('sheet-active');
+                
+                // Send to Firebase
+                const newRide = push(ref(db, 'rides'));
+                set(newRide, {
+                    driverId: qrData.id,
+                    status: 'accepted',
+                    price: currentPrice,
+                    timestamp: Date.now()
+                });
+            }, 2000);
+        }
+
+        window.toggleSidebar = function() {
+            document.getElementById('sidebar').classList.toggle('open');
+        }
+
+        // 4. CANCEL & SAFETY
+        window.showCancel = function() {
+            document.getElementById('ride-sheet').classList.remove('sheet-active');
+            document.getElementById('cancel-modal').style.bottom = '0';
+        }
+        window.closeCancel = function() {
+            document.getElementById('cancel-modal').style.bottom = '-100%';
+            document.getElementById('ride-sheet').classList.add('sheet-active');
+        }
+        window.cancelRide = function(reason) {
+            alert("Ride Cancelled: " + reason);
+            location.reload();
+        }
+        window.shareLocation = function() {
+            const text = `Tracking my ride on Zayra! Vehicle: ${qrData.plate}. Track here: https://zayra.vercel.app/track/123`;
+            window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+        }
+
     </script>
 </body>
 </html>
