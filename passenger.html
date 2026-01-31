@@ -3,51 +3,281 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Zayra Passenger</title>
+    <title>Zayra - Premium Ride</title>
+    
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #fff; overflow: hidden; touch-action: none; }
+        
+        /* Map Layering */
+        #map { height: 100vh; width: 100%; z-index: 0; }
+        .leaflet-control-attribution { display: none !important; }
+
+        /* Bottom Sheet Animations */
+        .sheet {
+            position: fixed; bottom: 0; left: 0; width: 100%; background: white;
+            border-top-left-radius: 24px; border-top-right-radius: 24px;
+            box-shadow: 0 -10px 50px rgba(0,0,0,0.2); z-index: 2000;
+            transform: translateY(120%); transition: transform 0.5s cubic-bezier(0.32, 0.72, 0, 1);
+            display: flex; flex-direction: column; max-height: 90vh;
+        }
+        .sheet.active { transform: translateY(0); }
+
+        /* Sidebar Animation */
+        .sidebar {
+            position: fixed; top: 0; left: 0; height: 100%; width: 80%; background: white;
+            z-index: 3000; transform: translateX(-100%); transition: transform 0.3s ease;
+            box-shadow: 10px 0 30px rgba(0,0,0,0.1);
+        }
+        .sidebar.open { transform: translateX(0); }
+        .overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2999;
+            opacity: 0; pointer-events: none; transition: opacity 0.3s;
+        }
+        .overlay.open { opacity: 1; pointer-events: auto; }
+
+        /* Pulse User Location */
+        .user-pulse {
+            width: 20px; height: 20px; background: #3B82F6; border-radius: 50%;
+            border: 3px solid white; box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(59, 130, 246, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+        }
+
+        /* Loaders */
+        .loader {
+            border: 3px solid #f3f3f3; border-radius: 50%; border-top: 3px solid #FBC02D;
+            width: 24px; height: 24px; animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
 </head>
 <body class="bg-gray-100">
 
-    <div id="map" class="h-screen w-full z-0"></div>
-
-    <div id="ui-normal" class="fixed bottom-0 w-full bg-white p-6 rounded-t-3xl shadow-2xl z-10 hidden">
-        <h2 class="text-xl font-bold mb-4">Where to?</h2>
-        <input type="text" placeholder="Search destination" class="w-full p-4 bg-gray-100 rounded-xl mb-4">
-        <p class="text-xs text-red-500">Scan a QR code on the vehicle to book instantly.</p>
+    <div id="ui-login" class="fixed inset-0 bg-white z-[5000] p-8 flex flex-col justify-center hidden">
+        <div class="text-center mb-10">
+            <div class="w-20 h-20 bg-yellow-400 rounded-2xl mx-auto flex items-center justify-center mb-4 shadow-lg">
+                <i class="ri-taxi-fill text-4xl text-black"></i>
+            </div>
+            <h1 class="text-3xl font-extrabold text-gray-900">Welcome to Zayra</h1>
+            <p class="text-gray-500 mt-2">India's Fastest Ride Booking App</p>
+        </div>
+        <div class="space-y-5">
+            <div>
+                <label class="text-xs font-bold text-gray-400 uppercase">Full Name</label>
+                <input type="text" id="reg-name" class="w-full bg-gray-50 border border-gray-200 p-4 rounded-xl font-bold outline-none focus:border-yellow-400 focus:bg-white transition-colors" placeholder="e.g. Rahul Sharma">
+            </div>
+            <div>
+                <label class="text-xs font-bold text-gray-400 uppercase">Mobile Number</label>
+                <input type="tel" id="reg-phone" class="w-full bg-gray-50 border border-gray-200 p-4 rounded-xl font-bold outline-none focus:border-yellow-400 focus:bg-white transition-colors" placeholder="+91 98765 43210">
+            </div>
+            <button onclick="registerUser()" class="w-full bg-black text-white py-4 rounded-xl font-bold text-lg shadow-xl active:scale-95 transition-transform">Get Started</button>
+        </div>
+        <p class="text-center mt-6 text-xs text-gray-400">By continuing, you agree to our Terms & Privacy Policy.</p>
     </div>
 
-    <div id="ui-qr" class="fixed bottom-0 w-full bg-white p-6 rounded-t-3xl shadow-2xl z-20 hidden">
-        <div class="flex items-center gap-4 mb-6 bg-yellow-50 p-4 rounded-xl border border-yellow-200">
-            <div class="bg-black text-white px-3 py-1 rounded text-xs font-bold uppercase">AUTO</div>
+    <div class="overlay" id="menu-overlay" onclick="toggleMenu()"></div>
+    <div class="sidebar flex flex-col p-6" id="sidebar-menu">
+        <div class="flex items-center gap-4 mb-8 border-b pb-6">
+            <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center text-3xl">👤</div>
             <div>
-                <div class="font-bold text-lg" id="v-plate">DL 1R ----</div>
-                <div class="text-xs text-green-600 font-bold">● Driver Nearby</div>
+                <h2 class="font-bold text-xl" id="menu-name">Guest</h2>
+                <p class="text-sm text-gray-500" id="menu-phone">+91 --</p>
+            </div>
+        </div>
+        <nav class="space-y-6 flex-1 text-gray-700 font-medium">
+            <div class="flex items-center gap-4 cursor-pointer hover:text-black"><i class="ri-history-line text-xl"></i> Your Rides</div>
+            <div class="flex items-center gap-4 cursor-pointer hover:text-black"><i class="ri-wallet-3-line text-xl"></i> Payment</div>
+            <div class="flex items-center gap-4 cursor-pointer hover:text-black"><i class="ri-notification-3-line text-xl"></i> Notifications</div>
+            <div class="flex items-center gap-4 cursor-pointer hover:text-black"><i class="ri-customer-service-2-line text-xl"></i> Support</div>
+            <div class="flex items-center gap-4 cursor-pointer hover:text-black"><i class="ri-settings-4-line text-xl"></i> Settings</div>
+        </nav>
+        <div class="text-xs text-gray-400 text-center">Version 5.2.0 (Pro)</div>
+    </div>
+
+    <div id="map"></div>
+    
+    <div class="absolute top-4 left-4 right-4 z-[1000] flex justify-between items-start pointer-events-none">
+        <button onclick="toggleMenu()" class="pointer-events-auto bg-white p-3 rounded-full shadow-lg active:scale-90 transition-transform">
+            <i class="ri-menu-2-line text-xl"></i>
+        </button>
+        <div class="pointer-events-auto bg-white px-3 py-1 rounded-full shadow-lg flex items-center gap-2">
+            <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <span class="text-xs font-bold text-green-700">GPS Active</span>
+        </div>
+    </div>
+
+    <div id="home-search-ui" class="absolute top-20 left-4 right-4 bg-white p-4 rounded-2xl shadow-xl z-[1000] flex items-center gap-4 cursor-pointer transition-transform active:scale-95" onclick="openSearch()">
+        <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+        <div class="flex-1">
+            <div class="text-[10px] font-bold text-green-600 uppercase tracking-wider">Current Location</div>
+            <div class="text-lg font-bold text-gray-400">Where are you going?</div>
+        </div>
+        <div class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+            <i class="ri-search-line text-gray-500"></i>
+        </div>
+    </div>
+
+    <div id="search-overlay" class="fixed inset-0 bg-white z-[2500] hidden flex flex-col">
+        <div class="p-4 shadow-sm bg-white z-10">
+            <div class="flex items-center mb-6">
+                <button onclick="closeSearch()" class="mr-4"><i class="ri-arrow-left-line text-2xl"></i></button>
+                <h2 class="font-bold text-xl">Select Destination</h2>
+            </div>
+            
+            <div class="relative pl-6">
+                <div class="absolute left-[11px] top-8 bottom-8 border-l-2 border-dashed border-gray-300"></div>
+                <div class="flex items-center gap-4 mb-4">
+                    <div class="w-3 h-3 bg-green-500 rounded-full ring-4 ring-green-100"></div>
+                    <input type="text" id="pickup-disp" class="flex-1 bg-gray-50 p-3 rounded-xl text-sm font-bold text-gray-500" value="Detecting Location..." readonly>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="w-3 h-3 bg-red-500 rounded-full ring-4 ring-red-100"></div>
+                    <input type="text" id="drop-input" class="flex-1 bg-gray-100 p-3 rounded-xl text-sm font-bold focus:ring-2 focus:ring-black outline-none" placeholder="Search Location (e.g. Mall)" oninput="handleSearch(this.value)">
+                    <div id="search-loader" class="loader hidden"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="search-results" class="flex-1 overflow-y-auto bg-gray-50 p-2 space-y-2">
+            </div>
+    </div>
+
+    <div id="sheet-booking" class="sheet">
+        <div class="w-12 h-1 bg-gray-200 rounded-full mx-auto mt-3 mb-4"></div>
+        
+        <div class="px-6 flex-1 overflow-y-auto pb-32">
+            <div id="qr-banner" class="hidden mb-4 bg-yellow-50 border border-yellow-200 p-3 rounded-xl flex items-center gap-3">
+                <div class="bg-yellow-400 p-1 rounded"><i class="ri-qr-scan-2-line text-black"></i></div>
+                <div class="flex-1">
+                    <div class="text-xs font-bold text-yellow-800 uppercase">Smart Match</div>
+                    <div class="text-sm font-bold text-black" id="qr-vehicle-text">Vehicle detected via QR</div>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-end mb-6">
+                <div>
+                    <h2 class="text-3xl font-black" id="total-fare">₹0</h2>
+                    <p class="text-xs text-gray-500 font-medium">Estimated Distance: <span id="dist-val">0 km</span></p>
+                </div>
+                <div class="bg-green-100 text-green-700 px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1">
+                    <i class="ri-coupon-3-fill"></i> APPLY COUPON
+                </div>
+            </div>
+
+            <div class="space-y-3">
+                <div onclick="selectVehicle('auto')" id="veh-auto" class="vehicle-card border-2 border-transparent bg-gray-50 p-4 rounded-xl flex items-center justify-between cursor-pointer transition-all">
+                    <div class="flex items-center gap-4">
+                        <img src="https://cdn-icons-png.flaticon.com/512/2555/2555013.png" class="w-14">
+                        <div>
+                            <div class="font-bold text-gray-900">Auto</div>
+                            <div class="text-xs text-gray-500">3 min • 3 Seats</div>
+                        </div>
+                    </div>
+                    <div class="font-bold text-lg">₹<span id="p-auto">0</span></div>
+                </div>
+                <div onclick="selectVehicle('bike')" id="veh-bike" class="vehicle-card border-2 border-transparent bg-gray-50 p-4 rounded-xl flex items-center justify-between cursor-pointer transition-all">
+                    <div class="flex items-center gap-4">
+                        <img src="https://cdn-icons-png.flaticon.com/512/3082/3082383.png" class="w-14">
+                        <div>
+                            <div class="font-bold text-gray-900">Bike</div>
+                            <div class="text-xs text-gray-500">1 min • 1 Seat</div>
+                        </div>
+                    </div>
+                    <div class="font-bold text-lg">₹<span id="p-bike">0</span></div>
+                </div>
+            </div>
+
+            <div class="mt-6 bg-white border border-gray-100 p-4 rounded-xl shadow-sm">
+                <div class="flex justify-between text-xs font-bold mb-3">
+                    <span class="text-gray-400">Standard Price</span>
+                    <span class="text-green-600">⚡ High Priority (+₹50)</span>
+                </div>
+                <input type="range" min="0" max="50" step="10" value="0" class="w-full accent-black cursor-pointer" oninput="updatePrice(this.value)">
+                <p class="text-[10px] text-gray-400 text-center mt-2">Add a tip to attract drivers faster during rush hour.</p>
+            </div>
+            
+            <div class="mt-4 h-16 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow-lg">
+                🎉 Get 50% OFF on First Ride!
             </div>
         </div>
 
-        <h3 class="font-bold text-gray-500 text-xs uppercase mb-2">Drop Location</h3>
-        <input type="text" id="drop-input" class="w-full p-4 bg-gray-100 rounded-xl font-bold border-2 focus:border-black outline-none mb-4" placeholder="Enter Drop Location (e.g. Metro Station)">
-        
-        <div class="flex justify-between items-center mb-6">
-            <div class="font-bold text-3xl">₹<span id="est-fare">50</span></div>
-            <div class="text-xs text-gray-400">Base Fare Estimate</div>
+        <div class="fixed bottom-0 w-full p-4 bg-white border-t z-20">
+            <button onclick="bookRide()" class="w-full bg-black text-white py-4 rounded-xl font-bold text-xl shadow-lg flex items-center justify-center gap-2">
+                <span>Book Ride</span> <i class="ri-arrow-right-line"></i>
+            </button>
         </div>
-
-        <button onclick="bookDirectRide()" class="w-full bg-black text-white py-4 rounded-xl font-bold text-lg">BOOK THIS RIDE</button>
     </div>
 
-    <div id="ui-waiting" class="fixed inset-0 bg-white z-50 hidden flex flex-col items-center justify-center p-8 text-center">
-        <div class="w-20 h-20 border-4 border-gray-200 border-t-yellow-400 rounded-full animate-spin mb-6"></div>
-        <h2 class="text-2xl font-bold mb-2">Requesting Driver...</h2>
-        <p class="text-gray-500">Sending alert to vehicle <span id="wait-plate" class="font-bold">---</span></p>
+    <div id="sheet-ride" class="sheet">
+        <div class="w-12 h-1 bg-gray-200 rounded-full mx-auto mt-3 mb-2"></div>
+        <div class="p-6">
+            <div class="flex justify-between items-start mb-6">
+                <div>
+                    <h2 class="text-xl font-bold text-green-600 flex items-center gap-2">
+                        <span class="w-2 h-2 bg-green-600 rounded-full animate-pulse"></span> Arriving in 3 mins
+                    </h2>
+                    <p class="text-xs text-gray-500 mt-1">Driver is on the way to pickup</p>
+                </div>
+                <div class="text-right">
+                    <div class="text-[10px] font-bold text-gray-400 uppercase">Start OTP</div>
+                    <div class="text-2xl font-black tracking-widest" id="disp-otp">----</div>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-100 mb-6 shadow-sm">
+                <div class="relative">
+                    <img src="https://randomuser.me/api/portraits/men/32.jpg" class="w-16 h-16 rounded-full border-2 border-white shadow">
+                    <div class="absolute -bottom-1 -right-1 bg-black text-white text-[10px] font-bold px-2 py-0.5 rounded-full">4.9 ★</div>
+                </div>
+                <div class="flex-1">
+                    <div class="font-bold text-lg" id="d-name">Assigning...</div>
+                    <div class="text-xs font-bold text-gray-500 uppercase" id="d-car">Finding Vehicle</div>
+                </div>
+                <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-green-700 cursor-pointer hover:bg-green-200">
+                    <i class="ri-phone-fill text-xl"></i>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-4 gap-3 mb-6">
+                <button class="flex flex-col items-center gap-2 p-3 rounded-xl bg-gray-50 hover:bg-gray-100" onclick="shareLiveLoc()">
+                    <i class="ri-whatsapp-line text-2xl text-green-500"></i>
+                    <span class="text-[10px] font-bold">Share</span>
+                </button>
+                <button class="flex flex-col items-center gap-2 p-3 rounded-xl bg-gray-50 hover:bg-gray-100">
+                    <i class="ri-message-3-line text-2xl text-blue-500"></i>
+                    <span class="text-[10px] font-bold">Chat</span>
+                </button>
+                <button class="flex flex-col items-center gap-2 p-3 rounded-xl bg-gray-50 hover:bg-gray-100" onclick="alert('SOS Alert Sent to Police Control Room!')">
+                    <i class="ri-alarm-warning-line text-2xl text-red-500"></i>
+                    <span class="text-[10px] font-bold">SOS</span>
+                </button>
+                <button class="flex flex-col items-center gap-2 p-3 rounded-xl bg-gray-50 hover:bg-gray-100" onclick="cancelRide()">
+                    <i class="ri-close-circle-line text-2xl text-gray-500"></i>
+                    <span class="text-[10px] font-bold">Cancel</span>
+                </button>
+            </div>
+            
+            <div class="flex gap-2 overflow-x-auto pb-4 hide-scroll">
+                <span class="px-4 py-2 bg-gray-100 rounded-full text-xs font-bold text-gray-600 whitespace-nowrap">I am waiting at pickup</span>
+                <span class="px-4 py-2 bg-gray-100 rounded-full text-xs font-bold text-gray-600 whitespace-nowrap">Where are you?</span>
+            </div>
+        </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, push, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getDatabase, ref, push, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
+        // FIREBASE CONFIG
         const firebaseConfig = {
             apiKey: "AIzaSyAAMshTP9HgrB27FuLNP4CZN6VJKPDW8CQ",
             authDomain: "zayra-travels.firebaseapp.com",
@@ -57,77 +287,203 @@
             messagingSenderId: "124448306082",
             appId: "1:124448306082:web:cf5943d8592bc68b9c38fb"
         };
-
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
+        // STATE
+        let map, userMarker, userLoc = { lat: 28.6139, lng: 77.2090 };
+        let dropLoc = null;
+        let selectedVehicle = 'auto';
+        let baseFare = 0;
+        let priorityFee = 0;
+        let currentRideId = null;
         let targetDriverId = null;
-        let myLoc = { lat: 28.61, lng: 77.20 };
+        let userData = JSON.parse(localStorage.getItem('zayra_user'));
 
-        window.onload = function() {
+        // 1. INIT
+        window.onload = () => {
+            if(!userData) {
+                document.getElementById('ui-login').classList.remove('hidden');
+            } else {
+                setupApp();
+            }
+        };
+
+        window.registerUser = () => {
+            const name = document.getElementById('reg-name').value;
+            const phone = document.getElementById('reg-phone').value;
+            if(!name || !phone) return alert("Fill all details!");
+            
+            userData = { name, phone, id: 'u_' + Date.now() };
+            localStorage.setItem('zayra_user', JSON.stringify(userData));
+            document.getElementById('ui-login').classList.add('hidden');
+            setupApp();
+        };
+
+        function setupApp() {
+            // Update Menu
+            document.getElementById('menu-name').innerText = userData.name;
+            document.getElementById('menu-phone').innerText = userData.phone;
             initMap();
             checkQR();
         }
 
+        // 2. MAP
         function initMap() {
-            const map = L.map('map', { zoomControl: false }).setView([28.61, 77.20], 13);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png').addTo(map);
+            map = L.map('map', { zoomControl: false }).setView([userLoc.lat, userLoc.lng], 14);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '' }).addTo(map);
+
             if(navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(pos => {
-                    myLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-                    map.setView(myLoc, 15);
-                    L.marker(myLoc).addTo(map);
+                    userLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                    map.setView(userLoc, 16);
+                    
+                    const icon = L.divIcon({ className: 'user-pulse', html: '' });
+                    userMarker = L.marker(userLoc, {icon: icon}).addTo(map);
+                    
+                    // Reverse Geo
+                    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${userLoc.lat}&lon=${userLoc.lng}`)
+                    .then(r=>r.json()).then(d => {
+                        document.getElementById('pickup-disp').value = d.display_name.split(',')[0];
+                    });
                 });
             }
         }
 
-        // --- MAIN LOGIC: URL PARAMS CHECK ---
+        // 3. SEARCH
+        window.openSearch = () => {
+            document.getElementById('search-overlay').classList.remove('hidden');
+            document.getElementById('drop-input').focus();
+        };
+        window.closeSearch = () => document.getElementById('search-overlay').classList.add('hidden');
+
+        let debounce;
+        window.handleSearch = (q) => {
+            clearTimeout(debounce);
+            if(q.length < 3) return;
+            document.getElementById('search-loader').classList.remove('hidden');
+            
+            debounce = setTimeout(async () => {
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}&countrycodes=in&limit=5`);
+                const data = await res.json();
+                document.getElementById('search-loader').classList.add('hidden');
+                
+                const list = document.getElementById('search-results');
+                list.innerHTML = "";
+                data.forEach(p => {
+                    list.innerHTML += `
+                        <div onclick="selectDrop(${p.lat}, ${p.lon})" class="flex items-center gap-3 p-4 border-b bg-white hover:bg-gray-50 cursor-pointer">
+                            <div class="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-500"><i class="ri-map-pin-line"></i></div>
+                            <div>
+                                <div class="font-bold text-sm text-gray-900">${p.display_name.split(',')[0]}</div>
+                                <div class="text-xs text-gray-400 truncate w-64">${p.display_name}</div>
+                            </div>
+                        </div>`;
+                });
+            }, 500);
+        };
+
+        window.selectDrop = (lat, lon) => {
+            dropLoc = { lat, lng: lon };
+            closeSearch();
+            showBooking();
+        };
+
+        // 4. BOOKING LOGIC
         function checkQR() {
             const params = new URLSearchParams(window.location.search);
-            const dId = params.get('d_id'); // Admin ne yahi naam rakha tha
-            const plate = params.get('plate');
-
-            if(dId) {
-                // QR MODE ACTIVE
-                targetDriverId = dId;
-                document.getElementById('v-plate').innerText = plate || "Unknown Vehicle";
-                document.getElementById('ui-qr').classList.remove('hidden');
-                document.getElementById('wait-plate').innerText = plate;
-            } else {
-                // NORMAL MODE
-                document.getElementById('ui-normal').classList.remove('hidden');
+            if(params.has('d_id')) {
+                targetDriverId = params.get('d_id');
+                const plate = params.get('plate') || "Auto";
+                document.getElementById('qr-banner').classList.remove('hidden');
+                document.getElementById('qr-vehicle-text').innerText = `Matched: ${plate}`;
+                selectVehicle('auto'); // Default
             }
         }
 
-        window.bookDirectRide = function() {
-            const drop = document.getElementById('drop-input').value;
-            if(!drop) return alert("Drop location to daalo!");
+        function showBooking() {
+            document.getElementById('sheet-booking').classList.add('active');
+            // Calc Distance (Approx)
+            const dLat = (dropLoc.lat - userLoc.lat);
+            const dLng = (dropLoc.lng - userLoc.lng);
+            const dist = Math.sqrt(dLat*dLat + dLng*dLng) * 111; // rough km
+            document.getElementById('dist-val').innerText = dist.toFixed(1) + " km";
+            
+            // Prices
+            document.getElementById('p-auto').innerText = Math.round(30 + dist*12);
+            document.getElementById('p-bike').innerText = Math.round(20 + dist*8);
+            
+            selectVehicle('auto');
+        }
 
-            // 1. Show Waiting UI
-            document.getElementById('ui-qr').classList.add('hidden');
-            document.getElementById('ui-waiting').classList.remove('hidden');
+        window.selectVehicle = (type) => {
+            selectedVehicle = type;
+            document.querySelectorAll('.vehicle-card').forEach(el => {
+                el.classList.remove('border-black', 'bg-yellow-50');
+                el.classList.add('border-transparent', 'bg-gray-50');
+            });
+            document.getElementById('veh-'+type).classList.add('border-black', 'bg-yellow-50');
+            
+            baseFare = parseInt(document.getElementById('p-'+type).innerText);
+            updatePrice(document.querySelector('input[type=range]').value);
+        };
 
-            // 2. Push to Firebase (Exactly matching Driver Listener)
+        window.updatePrice = (val) => {
+            priorityFee = parseInt(val);
+            document.getElementById('total-fare').innerText = "₹" + (baseFare + priorityFee);
+        };
+
+        // 5. FIREBASE ACTION
+        window.bookRide = () => {
+            document.getElementById('sheet-booking').classList.remove('active');
+            
+            const otp = Math.floor(1000 + Math.random() * 9000);
+            document.getElementById('disp-otp').innerText = otp;
+            
             const newRide = push(ref(db, 'rides'));
+            currentRideId = newRide.key;
+            
             set(newRide, {
-                driverId: targetDriverId, // Yahi ID driver ke pass honi chahiye
-                passenger: "Guest User",
-                pickup: myLoc,
-                dropAddress: drop,
-                fare: document.getElementById('est-fare').innerText,
+                passenger: userData,
+                driverId: targetDriverId || 'broadcast', // Important
+                pickup: userLoc,
+                drop: dropLoc,
+                fare: baseFare + priorityFee,
+                vehicle: selectedVehicle,
+                otp: otp,
                 status: 'pending',
                 timestamp: Date.now()
             });
 
-            // 3. Listen for Accept
-            onValue(ref(db, 'rides/' + newRide.key), (snap) => {
+            document.getElementById('sheet-ride').classList.add('active');
+            
+            // Listen for Driver Response
+            onValue(ref(db, `rides/${currentRideId}`), (snap) => {
                 const data = snap.val();
                 if(data && data.status === 'accepted') {
-                    alert("✅ DRIVER ACCEPTED! Ride Started.");
-                    document.getElementById('ui-waiting').innerHTML = "<h1 class='text-3xl font-bold text-green-600'>RIDE CONFIRMED</h1>";
+                    document.getElementById('d-name').innerText = data.driverName || "Driver Found";
+                    document.getElementById('d-car').innerText = data.driverPlate || "Vehicle Arriving";
+                    alert("Driver Accepted! 🎉");
                 }
             });
-        }
+        };
+
+        // 6. UTILS
+        window.toggleMenu = () => {
+            document.getElementById('sidebar-menu').classList.toggle('open');
+            document.getElementById('menu-overlay').classList.toggle('open');
+        };
+        window.cancelRide = () => {
+            if(confirm("Cancel Ride?")) {
+                if(currentRideId) remove(ref(db, `rides/${currentRideId}`));
+                location.reload();
+            }
+        };
+        window.shareLiveLoc = () => {
+            const url = `https://wa.me/?text=Tracking my ride on Zayra! Ride ID: ${currentRideId}`;
+            window.open(url, '_blank');
+        };
+
     </script>
 </body>
 </html>
