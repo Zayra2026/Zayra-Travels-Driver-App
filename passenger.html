@@ -2,113 +2,179 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zayra - Book Ride</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Zayra Cabs - Pro</title>
+    
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    
     <style>
-        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #eee; }
-        #map { height: 55vh; width: 100%; }
+        /* --- CSS: Professional UI (Ola/Uber Style) --- */
+        body { margin: 0; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f2f2f2; overflow: hidden; }
+        
+        /* 1. Map Layer */
+        #map { height: 100vh; width: 100%; z-index: 1; }
 
-        /* Bottom Control Panel */
-        .bottom-panel {
-            height: 45vh;
-            background: white;
-            border-top-left-radius: 20px;
-            border-top-right-radius: 20px;
-            padding: 20px;
-            box-shadow: 0 -4px 15px rgba(0,0,0,0.2);
+        /* 2. Top Search Bar (Floating) */
+        .search-container {
             position: absolute;
-            bottom: 0;
-            width: 100%;
-            box-sizing: border-box;
-            overflow-y: auto;
+            top: 20px;
+            left: 5%;
+            width: 90%;
+            z-index: 1000;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            padding: 15px;
+            transition: all 0.3s ease;
         }
 
-        h2, h3 { margin: 5px 0; }
-        .input-group { margin: 15px 0; }
+        .input-row { display: flex; align-items: center; margin-bottom: 10px; position: relative; }
+        .input-row:last-child { margin-bottom: 0; }
         
-        label { font-size: 12px; color: gray; display: block; margin-bottom: 5px; }
-        
-        /* Fare Input Styling */
-        .fare-box {
-            display: flex;
-            align-items: center;
-            background: #f8f9fa;
-            padding: 10px;
-            border-radius: 10px;
-            border: 1px solid #ddd;
-        }
-        .currency { font-size: 20px; font-weight: bold; margin-right: 5px; }
-        input[type="number"] {
-            border: none;
-            background: transparent;
-            font-size: 22px;
-            font-weight: bold;
+        .dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 10px; }
+        .green-dot { background: #28a745; }
+        .red-dot { background: #dc3545; }
+        .line-connect { position: absolute; left: 4px; top: 20px; height: 25px; border-left: 2px dashed #ddd; }
+
+        input {
             width: 100%;
+            border: none;
+            background: #f3f4f6;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
             outline: none;
         }
+        input:focus { background: #fff; box-shadow: 0 0 0 2px black; }
 
-        /* Buttons */
-        .btn-main {
+        /* 3. Search Suggestions List */
+        #suggestions-list {
+            position: absolute;
+            top: 130px;
+            left: 5%;
+            width: 90%;
+            background: white;
+            z-index: 1001;
+            border-radius: 0 0 10px 10px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+        }
+        .suggestion-item {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+        }
+        .suggestion-item i { margin-right: 10px; color: gray; }
+
+        /* 4. Bottom Selection Sheet */
+        .bottom-sheet {
+            position: absolute;
+            bottom: -100%; /* Hidden initially */
+            left: 0;
             width: 100%;
-            padding: 15px;
-            font-size: 18px;
-            border: none;
+            background: white;
+            z-index: 1002;
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.2);
+            padding: 20px;
+            box-sizing: border-box;
+            transition: bottom 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        .sheet-active { bottom: 0; }
+
+        .vehicle-options { display: flex; justify-content: space-between; margin: 20px 0; }
+        .vehicle-card {
+            border: 1px solid #eee;
             border-radius: 10px;
+            padding: 10px;
+            text-align: center;
+            width: 30%;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .vehicle-card.selected { border: 2px solid black; background: #fffef0; }
+        .vehicle-img { width: 50px; height: 30px; object-fit: contain; margin-bottom: 5px; }
+        .price-text { font-weight: bold; font-size: 14px; }
+        .time-text { font-size: 10px; color: gray; }
+
+        .btn-confirm {
+            width: 100%;
             background: black;
             color: white;
+            padding: 15px;
+            font-size: 18px;
             font-weight: bold;
+            border: none;
+            border-radius: 8px;
             cursor: pointer;
         }
-        .btn-green { background: #28a745; margin-top: 10px; }
-        .btn-red { background: #dc3545; margin-top: 10px; }
         
-        /* Status States */
-        .hidden { display: none; }
-        .status-msg { 
-            padding: 10px; 
-            border-radius: 5px; 
-            text-align: center; 
-            margin-bottom: 10px; 
-            font-weight: bold; 
-        }
-        .bg-yellow { background: #fff3cd; color: #856404; }
+        /* 5. Loader */
+        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #3498db; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: none; margin-left: 10px;}
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
     </style>
 </head>
 <body>
 
     <div id="map"></div>
 
-    <div class="bottom-panel">
+    <div class="search-container">
+        <div class="input-row">
+            <div class="dot green-dot"></div>
+            <div class="line-connect"></div>
+            <input type="text" id="pickup-input" placeholder="Detecting location..." readonly>
+            <div class="loader" id="pickup-loader"></div>
+        </div>
+        <div class="input-row">
+            <div class="dot red-dot"></div>
+            <input type="text" id="drop-input" placeholder="Enter drop location (e.g., Red Fort)" onkeyup="searchAddress(this.value)">
+            <i class="ri-search-line" style="position: absolute; right: 15px; color: gray;"></i>
+        </div>
+    </div>
+
+    <div id="suggestions-list"></div>
+
+    <div class="bottom-sheet" id="ride-selector">
+        <h3 style="margin: 0; font-size: 16px; color: #555;">Available Rides</h3>
+        <p style="font-size: 12px; color: green;">Cash payments only</p>
         
-        <div id="booking-form">
-            <h2>Where to?</h2>
-            <p style="font-size: 13px; color: gray;">Tap on map to set Drop Location</p>
-            
-            <div class="input-group">
-                <label>OFFER YOUR FARE (₹) - Cash Only</label>
-                <div class="fare-box">
-                    <span class="currency">₹</span>
-                    <input type="number" id="offer-fare" value="50">
-                </div>
-                <p id="dist-display" style="font-size: 12px; color: blue; margin-top: 5px;">0 km</p>
+        <div class="vehicle-options">
+            <div class="vehicle-card selected" onclick="selectVehicle('bike', 15)">
+                <img src="https://cdn-icons-png.flaticon.com/512/3082/3082383.png" class="vehicle-img">
+                <div class="price-text" id="price-bike">₹45</div>
+                <div class="time-text">3 min</div>
+                <div style="font-size:10px;">Bike</div>
             </div>
-
-            <button class="btn-main" onclick="requestRide()">REQUEST RIDE</button>
+            <div class="vehicle-card" onclick="selectVehicle('auto', 25)">
+                <img src="https://cdn-icons-png.flaticon.com/512/2555/2555013.png" class="vehicle-img">
+                <div class="price-text" id="price-auto">₹65</div>
+                <div class="time-text">5 min</div>
+                <div style="font-size:10px;">Auto</div>
+            </div>
+            <div class="vehicle-card" onclick="selectVehicle('cab', 40)">
+                <img src="https://cdn-icons-png.flaticon.com/512/2554/2554936.png" class="vehicle-img">
+                <div class="price-text" id="price-cab">₹110</div>
+                <div class="time-text">8 min</div>
+                <div style="font-size:10px;">Cab</div>
+            </div>
         </div>
 
-        <div id="waiting-screen" class="hidden">
-            <h2 id="status-title">Requesting...</h2>
-            <div id="status-message" class="status-msg bg-yellow">Waiting for Driver Response...</div>
-            <div id="counter-offer-box" class="hidden">
-                <h3>Driver asks for more:</h3>
-                <h1 id="driver-ask-price">₹0</h1>
-                <button class="btn-main btn-green" onclick="acceptCounterOffer()">ACCEPT NEW PRICE</button>
-                <button class="btn-main btn-red" onclick="cancelRide()">CANCEL</button>
-            </div>
-            <button id="cancel-wait-btn" class="btn-main btn-red" onclick="cancelRide()">CANCEL REQUEST</button>
-        </div>
+        <button class="btn-confirm" onclick="requestRide()">BOOK RIDE</button>
+    </div>
 
+    <div class="bottom-sheet" id="status-sheet" style="text-align: center;">
+        <h2>Connecting to Drivers...</h2>
+        <div style="margin: 20px; color: #555;">Please wait while we find a nearby driver.</div>
+        <button class="btn-confirm" style="background: #dc3545;" onclick="cancelRequest()">CANCEL</button>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -116,6 +182,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, push, set, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
+        // FIREBASE CONFIG (Aapka wala)
         const firebaseConfig = {
             apiKey: "AIzaSyAAMshTP9HgrB27FuLNP4CZN6VJKPDW8CQ",
             authDomain: "zayra-travels.firebaseapp.com",
@@ -129,157 +196,201 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // --- Logic Start ---
-        
-        let map, pickupMarker, dropMarker;
-        let pickupCoords = { lat: 28.6139, lng: 77.2090 }; // Default Delhi
+        // --- STATE VARIABLES ---
+        let map;
+        let pickupCoords = null;
         let dropCoords = null;
+        let pickupAddress = "";
+        let dropAddress = "";
         let currentRideId = null;
+        let selectedVehicleType = 'bike';
+        let currentDistance = 0;
+        let markers = [];
 
-        // URL se Driver ID nikalo
-        const urlParams = new URLSearchParams(window.location.search);
-        const driverId = urlParams.get('id');
-
-        if (!driverId) alert("Invalid QR Code! No Driver ID found.");
-
-        // 1. Initialize Map
+        // --- 1. INITIALIZE MAP & GET CURRENT LOCATION ---
         function initMap() {
-            map = L.map('map').setView([pickupCoords.lat, pickupCoords.lng], 14);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+            // Delhi Center
+            map = L.map('map', { zoomControl: false }).setView([28.6139, 77.2090], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM' }).addTo(map);
 
-            // Get Current Location of User
+            // Auto-detect User Location
             if(navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(pos => {
-                    pickupCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-                    map.setView(pickupCoords, 15);
-                    pickupMarker = L.marker(pickupCoords).addTo(map).bindPopup("You are here").openPopup();
+                document.getElementById('pickup-loader').style.display = 'block';
+                navigator.geolocation.getCurrentPosition(async (pos) => {
+                    const lat = pos.coords.latitude;
+                    const lng = pos.coords.longitude;
+                    pickupCoords = { lat, lng };
+                    
+                    // Add Marker
+                    addMarker(lat, lng, 'green');
+                    map.setView([lat, lng], 16);
+
+                    // REVERSE GEOCODING (Lat/Lng -> Address Name)
+                    const addr = await getAddressFromCoords(lat, lng);
+                    pickupAddress = addr;
+                    document.getElementById('pickup-input').value = addr;
+                    document.getElementById('pickup-loader').style.display = 'none';
+
+                }, (err) => {
+                    alert("Location access denied. Please enable GPS.");
                 });
             }
+        }
 
-            // Click to set Drop Location
-            map.on('click', function(e) {
-                if (dropMarker) map.removeLayer(dropMarker);
-                dropCoords = { lat: e.latlng.lat, lng: e.latlng.lng };
-                dropMarker = L.marker([dropCoords.lat, dropCoords.lng], {icon: redIcon}).addTo(map);
-                
-                // Calculate Fare
-                calculateFare();
+        // --- 2. ADDRESS SEARCH (Nominatim API - Free) ---
+        let debounceTimer;
+        window.searchAddress = function(query) {
+            clearTimeout(debounceTimer);
+            if(query.length < 3) return;
+
+            // Wait 500ms before calling API (to avoid rate limits)
+            debounceTimer = setTimeout(async () => {
+                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${query}&viewbox=76.8,28.9,77.7,28.3&bounded=1`; // Delhi NCR bound
+                try {
+                    const res = await fetch(url);
+                    const data = await res.json();
+                    showSuggestions(data);
+                } catch(e) { console.error(e); }
+            }, 500);
+        }
+
+        function showSuggestions(data) {
+            const list = document.getElementById('suggestions-list');
+            list.innerHTML = "";
+            list.style.display = 'block';
+
+            data.forEach(place => {
+                const div = document.createElement('div');
+                div.className = 'suggestion-item';
+                div.innerHTML = `<i class="ri-map-pin-line"></i> ${place.display_name.substring(0, 40)}...`;
+                div.onclick = () => selectDropLocation(place);
+                list.appendChild(div);
             });
         }
 
-        // Custom Red Icon for Drop
-        const redIcon = new L.Icon({
-            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34]
-        });
+        function selectDropLocation(place) {
+            // Hide list
+            document.getElementById('suggestions-list').style.display = 'none';
+            document.getElementById('drop-input').value = place.display_name;
+            dropAddress = place.display_name;
+            
+            dropCoords = { lat: parseFloat(place.lat), lng: parseFloat(place.lon) };
 
-        // 2. Fare Calculation (Basic Logic)
-        function calculateFare() {
+            // Add Marker and Fit Bounds
+            addMarker(dropCoords.lat, dropCoords.lng, 'red');
+            const group = new L.featureGroup(markers);
+            map.fitBounds(group.getBounds(), { padding: [50, 50] });
+
+            // Calculate Distance & Price
+            calculateEstimates();
+            
+            // Show Vehicle Selector
+            document.getElementById('ride-selector').classList.add('sheet-active');
+        }
+
+        // --- 3. UTILS & CALCULATION ---
+        
+        async function getAddressFromCoords(lat, lng) {
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+                const data = await res.json();
+                return data.display_name.split(",")[0] + ", " + data.display_name.split(",")[1]; // Short address
+            } catch { return "Unknown Location"; }
+        }
+
+        function addMarker(lat, lng, color) {
+            const iconUrl = color === 'green' 
+                ? 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png'
+                : 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png';
+            
+            const marker = L.marker([lat, lng], {
+                icon: new L.Icon({ iconUrl: iconUrl, iconSize: [25, 41], iconAnchor: [12, 41] })
+            }).addTo(map);
+            markers.push(marker);
+        }
+
+        function calculateEstimates() {
             if(!pickupCoords || !dropCoords) return;
             
-            // Haversine Formula for Distance
-            const R = 6371; // Earth radius in km
+            // Haversine Distance
+            const R = 6371; 
             const dLat = (dropCoords.lat - pickupCoords.lat) * Math.PI / 180;
             const dLon = (dropCoords.lng - pickupCoords.lng) * Math.PI / 180;
             const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
                       Math.cos(pickupCoords.lat * Math.PI / 180) * Math.cos(dropCoords.lat * Math.PI / 180) *
                       Math.sin(dLon/2) * Math.sin(dLon/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            const distance = (R * c).toFixed(2); // Distance in KM
+            const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            
+            currentDistance = dist.toFixed(1);
 
-            // Pricing: Base ₹30 + ₹15 per km
-            let price = Math.round(30 + (distance * 15));
-            if(price < 40) price = 40; // Minimum fare
-
-            document.getElementById("offer-fare").value = price;
-            document.getElementById("dist-display").innerText = `Distance: ${distance} km (Est.)`;
+            // Update Prices in UI (Base + rate/km)
+            document.getElementById('price-bike').innerText = "₹" + Math.round(20 + (dist * 10));
+            document.getElementById('price-auto').innerText = "₹" + Math.round(30 + (dist * 15));
+            document.getElementById('price-cab').innerText  = "₹" + Math.round(50 + (dist * 20));
         }
 
-        // 3. Request Ride (Create Entry in Firebase)
+        // Selection Logic
+        window.selectVehicle = function(type, rate) {
+            selectedVehicleType = type;
+            // Visual Update
+            document.querySelectorAll('.vehicle-card').forEach(el => el.classList.remove('selected'));
+            event.currentTarget.classList.add('selected');
+        }
+
+        // --- 4. BOOKING LOGIC (Firebase) ---
+
         window.requestRide = function() {
-            if(!dropCoords) { alert("Please tap on map to select Drop Location first!"); return; }
-            if(!driverId) { alert("Driver not found!"); return; }
+            if(!pickupCoords || !dropCoords) return alert("Select locations first");
+            
+            // UI Change
+            document.getElementById('ride-selector').classList.remove('sheet-active');
+            document.getElementById('status-sheet').classList.add('sheet-active');
 
-            const offeredPrice = document.getElementById("offer-fare").value;
+            // Find price based on selection
+            let price = 0;
+            if(selectedVehicleType === 'bike') price = document.getElementById('price-bike').innerText;
+            if(selectedVehicleType === 'auto') price = document.getElementById('price-auto').innerText;
+            if(selectedVehicleType === 'cab') price = document.getElementById('price-cab').innerText;
 
-            // UI Switch
-            document.getElementById("booking-form").classList.add("hidden");
-            document.getElementById("waiting-screen").classList.remove("hidden");
-
-            // Create Ride in Firebase
+            // Send to Firebase
             const ridesRef = ref(db, 'rides');
-            const newRideRef = push(ridesRef);
-            currentRideId = newRideRef.key;
+            const newRide = push(ridesRef);
+            currentRideId = newRide.key;
 
-            set(newRideRef, {
-                driverId: driverId,
-                status: 'pending', // pending -> accepted -> rejected -> counter_offer
+            // Driver ID URL se lo (Testing ke liye)
+            const urlParams = new URLSearchParams(window.location.search);
+            const driverId = urlParams.get('id');
+
+            set(newRide, {
+                status: 'pending',
+                passengerId: 'user_' + Math.floor(Math.random()*1000),
+                driverId: driverId || 'any', // Agar QR se nahi aya to 'any'
                 pickup: pickupCoords,
                 drop: dropCoords,
-                fare: offeredPrice,
-                paymentMode: 'CASH',
+                pickupAddress: pickupAddress,
+                dropAddress: dropAddress,
+                vehicle: selectedVehicleType,
+                fare: price.replace('₹', ''),
                 timestamp: Date.now()
             });
 
-            // Start Monitoring
-            monitorRideStatus();
-        }
-
-        // 4. Monitor Ride Status (Real-time)
-        function monitorRideStatus() {
-            const rideRef = ref(db, 'rides/' + currentRideId);
-            
-            onValue(rideRef, (snapshot) => {
-                const data = snapshot.val();
-                if(!data) return;
-
-                const title = document.getElementById("status-title");
-                const msg = document.getElementById("status-message");
-
-                if (data.status === 'accepted') {
-                    title.innerText = "Ride Confirmed! 🚖";
-                    msg.innerText = "Driver has accepted your request. Coming to pick you up.";
-                    msg.style.background = "#d4edda"; 
-                    msg.style.color = "#155724";
-                    document.getElementById("cancel-wait-btn").classList.add("hidden");
-                } 
-                else if (data.status === 'rejected') {
-                    title.innerText = "Request Rejected ❌";
-                    msg.innerText = "Driver declined. Please try another cab nearby.";
-                    msg.style.background = "#f8d7da";
-                    msg.style.color = "#721c24";
-                }
-                else if (data.status === 'counter_offer') {
-                    title.innerText = "Fare Negotiation 💬";
-                    msg.classList.add("hidden"); // Hide default msg
-                    document.getElementById("counter-offer-box").classList.remove("hidden");
-                    document.getElementById("driver-ask-price").innerText = "₹" + data.fare; // Updated fare
-                    document.getElementById("cancel-wait-btn").classList.add("hidden");
+            // Listen for status
+            onValue(ref(db, 'rides/' + currentRideId), (snap) => {
+                const data = snap.val();
+                if(data && data.status === 'accepted') {
+                    alert("✅ Driver Accepted! Ride Started.");
+                    document.getElementById('status-sheet').innerHTML = "<h2>Driver is coming!</h2><h3>Vehicle No: DL-5S-1234</h3>";
                 }
             });
         }
 
-        // 5. Handle Counter Offer
-        window.acceptCounterOffer = function() {
-            // Update status to accepted in DB
-            const rideRef = ref(db, 'rides/' + currentRideId);
-            update(rideRef, { status: "accepted" });
-            
-            // Hide negotiation box
-            document.getElementById("counter-offer-box").classList.add("hidden");
+        window.cancelRequest = function() {
+            if(currentRideId) remove(ref(db, 'rides/' + currentRideId));
+            window.location.reload();
         }
 
-        window.cancelRide = function() {
-            if(currentRideId) {
-                const rideRef = ref(db, 'rides/' + currentRideId);
-                remove(rideRef); // Delete request
-            }
-            location.reload(); // Refresh page
-        }
-
-        // Init
+        // Initialize
         initMap();
-
     </script>
 </body>
 </html>
