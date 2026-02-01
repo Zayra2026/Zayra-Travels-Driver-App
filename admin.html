@@ -3,81 +3,434 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zayra Admin</title>
+    <title>Zayra Admin - Command Center</title>
+    
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f3f4f6; }
+        
+        /* Sidebar Active State */
+        .nav-item.active { background: #000; color: #fbbf24; border-right: 4px solid #fbbf24; }
+        
+        /* Modal Animation */
+        .modal { transition: opacity 0.3s ease-in-out; opacity: 0; pointer-events: none; }
+        .modal.open { opacity: 1; pointer-events: auto; }
+        
+        /* Print Styles for Sticker */
         @media print {
             body * { visibility: hidden; }
-            #sticker-preview, #sticker-preview * { visibility: visible; }
-            #sticker-preview { position: absolute; left: 0; top: 0; margin: 0; width: 100%; height: 100%; border: none; }
+            #printable-sticker, #printable-sticker * { visibility: visible; }
+            #printable-sticker { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: white; }
+            .no-print { display: none; }
         }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen p-10 flex flex-col items-center">
+<body class="flex h-screen overflow-hidden">
 
-    <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-lg mb-10 print:hidden">
-        <h1 class="text-3xl font-black mb-6 text-center">QR GENERATOR</h1>
+    <aside class="w-64 bg-white border-r border-gray-200 flex flex-col z-10 shadow-lg">
+        <div class="h-20 flex items-center px-8 border-b border-gray-100">
+            <div class="w-8 h-8 bg-yellow-400 rounded-lg flex items-center justify-center mr-3">
+                <i class="ri-taxi-fill text-xl"></i>
+            </div>
+            <h1 class="text-xl font-extrabold tracking-tight">ZAYRA <span class="text-yellow-500">ADMIN</span></h1>
+        </div>
+
+        <nav class="flex-1 px-4 py-6 space-y-2">
+            <a href="#" onclick="switchTab('dash')" id="tab-dash" class="nav-item active flex items-center gap-3 px-4 py-3 text-sm font-bold text-gray-600 rounded-xl hover:bg-gray-50 transition-colors">
+                <i class="ri-dashboard-3-line text-lg"></i> Dashboard
+            </a>
+            <a href="#" onclick="switchTab('drivers')" id="tab-drivers" class="nav-item flex items-center gap-3 px-4 py-3 text-sm font-bold text-gray-600 rounded-xl hover:bg-gray-50 transition-colors">
+                <i class="ri-steering-2-line text-lg"></i> Drivers & Fleet
+            </a>
+            <a href="#" onclick="switchTab('qr')" id="tab-qr" class="nav-item flex items-center gap-3 px-4 py-3 text-sm font-bold text-gray-600 rounded-xl hover:bg-gray-50 transition-colors">
+                <i class="ri-qr-code-line text-lg"></i> QR Generator
+            </a>
+            <a href="#" onclick="switchTab('settings')" id="tab-settings" class="nav-item flex items-center gap-3 px-4 py-3 text-sm font-bold text-gray-600 rounded-xl hover:bg-gray-50 transition-colors">
+                <i class="ri-settings-4-line text-lg"></i> App Settings
+            </a>
+        </nav>
+
+        <div class="p-4 border-t border-gray-100">
+            <div class="bg-gray-900 rounded-xl p-4 text-white">
+                <p class="text-xs text-gray-400 uppercase font-bold">System Status</p>
+                <div class="flex items-center gap-2 mt-2">
+                    <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span class="text-sm font-bold">Firebase Connected</span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col h-screen overflow-hidden relative">
         
-        <div class="space-y-4">
-            <div>
-                <label class="font-bold text-gray-500 text-xs uppercase">Passenger App Link</label>
-                <input type="text" id="url" value="https://zayra-travels.vercel.app/passenger.html" class="w-full bg-yellow-50 p-3 rounded border font-mono text-sm">
-            </div>
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="font-bold text-gray-500 text-xs uppercase">Driver ID (Login ID)</label>
-                    <input type="text" id="did" class="w-full border p-3 rounded font-bold" placeholder="RAJU01">
+        <header class="h-20 bg-white border-b border-gray-200 flex justify-between items-center px-8">
+            <h2 class="text-2xl font-bold text-gray-800" id="page-title">Dashboard Overview</h2>
+            <div class="flex items-center gap-4">
+                <div class="text-right">
+                    <div class="text-sm font-bold">Admin User</div>
+                    <div class="text-xs text-gray-500">Super Administrator</div>
                 </div>
-                <div>
-                    <label class="font-bold text-gray-500 text-xs uppercase">Plate Number</label>
-                    <input type="text" id="plate" class="w-full border p-3 rounded font-bold uppercase" placeholder="DL 1R 5555">
+                <div class="w-10 h-10 bg-gray-200 rounded-full overflow-hidden">
+                    <img src="https://ui-avatars.com/api/?name=Admin&background=0D8ABC&color=fff" alt="Admin">
                 </div>
             </div>
-            <button onclick="gen()" class="w-full bg-black text-white py-4 rounded-xl font-bold shadow-lg">Generate & Print</button>
+        </header>
+
+        <div class="flex-1 overflow-y-auto p-8" id="content-area">
+
+            <div id="view-dash" class="space-y-6">
+                <div class="grid grid-cols-4 gap-6">
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                        <div class="text-gray-500 text-xs font-bold uppercase mb-2">Total Drivers</div>
+                        <div class="text-3xl font-black text-gray-900" id="stat-total-drivers">0</div>
+                    </div>
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                        <div class="text-gray-500 text-xs font-bold uppercase mb-2">Active Online</div>
+                        <div class="text-3xl font-black text-green-500 flex items-center gap-2">
+                            <span id="stat-active-drivers">0</span>
+                            <span class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></span>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                        <div class="text-gray-500 text-xs font-bold uppercase mb-2">Total Rides</div>
+                        <div class="text-3xl font-black text-blue-600" id="stat-total-rides">0</div>
+                    </div>
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                        <div class="text-gray-500 text-xs font-bold uppercase mb-2">Revenue (Est.)</div>
+                        <div class="text-3xl font-black text-yellow-500">₹<span id="stat-revenue">0</span></div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                    <h3 class="text-lg font-bold mb-4">Live Driver Monitor</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="text-xs text-gray-400 uppercase border-b border-gray-100">
+                                    <th class="py-3 font-bold">Driver Name</th>
+                                    <th class="py-3 font-bold">Vehicle</th>
+                                    <th class="py-3 font-bold">Login ID</th>
+                                    <th class="py-3 font-bold">Status</th>
+                                    <th class="py-3 font-bold text-right">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dash-driver-list" class="text-sm font-medium text-gray-700">
+                                <tr><td colspan="5" class="py-4 text-center text-gray-400">Loading data...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-drivers" class="hidden space-y-6">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xl font-bold">Fleet Management</h3>
+                    <button onclick="openModal()" class="bg-black text-white px-6 py-3 rounded-xl font-bold shadow-lg flex items-center gap-2">
+                        <i class="ri-add-line"></i> Register New Driver
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="driver-grid">
+                    </div>
+            </div>
+
+            <div id="view-settings" class="hidden max-w-2xl bg-white p-8 rounded-2xl shadow-sm">
+                <h3 class="text-xl font-bold mb-6">App Configuration</h3>
+                <div>
+                    <label class="block text-sm font-bold text-gray-500 mb-2">Passenger App URL (Vercel Link)</label>
+                    <input type="text" id="config-url" class="w-full bg-gray-50 border border-gray-200 p-4 rounded-xl font-bold" placeholder="https://your-app.vercel.app/passenger.html">
+                    <p class="text-xs text-gray-400 mt-2">Paste the full URL of your passenger.html file here. This is used for QR codes.</p>
+                </div>
+                <button onclick="saveConfig()" class="mt-6 bg-yellow-400 px-8 py-3 rounded-xl font-bold text-black">Save Configuration</button>
+            </div>
+
+        </div>
+    </main>
+
+    <div id="add-modal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl w-full max-w-lg p-8 shadow-2xl transform transition-all scale-100">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-black">Register Driver</h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-red-500"><i class="ri-close-line text-2xl"></i></button>
+            </div>
+
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs font-bold text-gray-500 uppercase">Driver Name</label>
+                        <input type="text" id="reg-name" class="w-full bg-gray-50 p-3 rounded-lg border font-bold" placeholder="Raju Kumar">
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-gray-500 uppercase">Phone</label>
+                        <input type="text" id="reg-phone" class="w-full bg-gray-50 p-3 rounded-lg border font-bold" placeholder="9876543210">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-xs font-bold text-gray-500 uppercase">Create Login ID (Unique)</label>
+                    <input type="text" id="reg-id" class="w-full bg-yellow-50 p-3 rounded-lg border border-yellow-200 font-bold text-lg uppercase" placeholder="RAJU01">
+                    <p class="text-[10px] text-gray-400">Driver will use this ID to login.</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs font-bold text-gray-500 uppercase">Vehicle Type</label>
+                        <select id="reg-type" class="w-full bg-gray-50 p-3 rounded-lg border font-bold">
+                            <option value="auto">Auto Rickshaw</option>
+                            <option value="bike">Bike</option>
+                            <option value="cab">Cab (Sedan)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-gray-500 uppercase">Plate Number</label>
+                        <input type="text" id="reg-plate" class="w-full bg-gray-50 p-3 rounded-lg border font-bold uppercase" placeholder="DL 1R 5555">
+                    </div>
+                </div>
+
+                <button onclick="registerDriver()" class="w-full bg-black text-white py-4 rounded-xl font-bold text-lg shadow-lg mt-4">Save & Add to Fleet</button>
+            </div>
         </div>
     </div>
 
-    <div id="sticker-preview" class="w-[300px] h-[450px] bg-yellow-400 rounded-3xl p-6 flex flex-col items-center justify-between relative shadow-2xl border-8 border-white hidden">
-        <div class="text-center z-10">
-            <h1 class="text-4xl font-black tracking-tighter">ZAYRA</h1>
-            <p class="font-bold text-xs uppercase tracking-widest">Instant Booking</p>
-        </div>
-        
-        <div class="bg-white p-4 rounded-2xl shadow-lg z-10">
-            <div id="qrcode"></div>
-        </div>
-
-        <div class="text-center z-10">
-            <div class="bg-black text-white px-4 py-1 rounded-full text-xs font-bold uppercase mb-2">Driver Partner</div>
-            <h2 class="text-3xl font-black uppercase leading-none" id="disp-plate">DL 1R 5555</h2>
-        </div>
-
-        <div class="absolute -bottom-10 -right-10 w-40 h-40 bg-white/20 rounded-full"></div>
-        <div class="absolute top-20 -left-10 w-20 h-20 bg-black/10 rounded-full"></div>
-    </div>
-
-    <script>
-        function gen() {
-            const base = document.getElementById('url').value;
-            const did = document.getElementById('did').value;
-            const plate = document.getElementById('plate').value;
-
-            if(!did || !plate) return alert("Fill Details");
-
-            const finalLink = `${base}?d_id=${did}&plate=${plate}`;
+    <div id="printable-sticker" class="hidden fixed inset-0 z-[100] bg-white flex items-center justify-center">
+        <div class="w-[350px] h-[500px] bg-yellow-400 rounded-3xl p-6 flex flex-col items-center justify-between shadow-none border-4 border-black relative overflow-hidden">
+            <div class="text-center z-10">
+                <h1 class="text-5xl font-black tracking-tighter">ZAYRA</h1>
+                <p class="font-bold text-sm uppercase tracking-widest">Instant Booking</p>
+            </div>
             
-            document.getElementById('qrcode').innerHTML = "";
-            new QRCode(document.getElementById("qrcode"), {
-                text: finalLink,
-                width: 180, height: 180
+            <div class="bg-white p-4 rounded-2xl shadow-lg z-10">
+                <div id="sticker-qr"></div>
+            </div>
+
+            <div class="text-center z-10 pb-6">
+                <div class="bg-black text-white px-4 py-1 rounded-full text-sm font-bold mb-2 uppercase inline-block" id="sticker-type">AUTO</div>
+                <h2 class="text-4xl font-black uppercase leading-none" id="sticker-plate">DL 1R 5555</h2>
+                <p class="text-xs font-bold mt-2 opacity-70">Scan QR to Book This Ride</p>
+            </div>
+
+            <div class="absolute -bottom-10 -right-10 w-40 h-40 bg-white opacity-20 rounded-full"></div>
+            <div class="absolute top-20 -left-10 w-20 h-20 bg-black opacity-5 rounded-full"></div>
+        </div>
+        
+        <div class="absolute top-10 right-10 flex gap-4 no-print">
+            <button onclick="window.print()" class="bg-black text-white px-6 py-3 rounded-xl font-bold">Print Now</button>
+            <button onclick="closeSticker()" class="bg-red-500 text-white px-6 py-3 rounded-xl font-bold">Close</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, set, push, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        // FIREBASE CONFIG
+        const firebaseConfig = {
+            apiKey: "AIzaSyAAMshTP9HgrB27FuLNP4CZN6VJKPDW8CQ",
+            authDomain: "zayra-travels.firebaseapp.com",
+            databaseURL: "https://zayra-travels-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "zayra-travels",
+            storageBucket: "zayra-travels.firebasestorage.app",
+            messagingSenderId: "124448306082",
+            appId: "1:124448306082:web:cf5943d8592bc68b9c38fb"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // GLOBAL VARS
+        let driversList = [];
+        let passengerAppUrl = localStorage.getItem('zayra_app_url') || "";
+
+        // INIT
+        window.onload = () => {
+            if(passengerAppUrl) document.getElementById('config-url').value = passengerAppUrl;
+            fetchStats();
+        };
+
+        // --- 1. FIREBASE LISTENERS (REALTIME) ---
+        function fetchStats() {
+            const driversRef = ref(db, 'drivers');
+            
+            onValue(driversRef, (snapshot) => {
+                const data = snapshot.val();
+                driversList = [];
+                let activeCount = 0;
+                let totalCount = 0;
+
+                const tbody = document.getElementById('dash-driver-list');
+                const grid = document.getElementById('driver-grid');
+                tbody.innerHTML = "";
+                grid.innerHTML = "";
+
+                if(data) {
+                    Object.keys(data).forEach(key => {
+                        const d = data[key];
+                        totalCount++;
+                        if(d.status === 'online') activeCount++;
+                        driversList.push(d);
+
+                        // 1. Add to Dashboard Table
+                        const statusBadge = d.status === 'online' 
+                            ? `<span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">● Online</span>` 
+                            : `<span class="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold">Offline</span>`;
+
+                        const row = `
+                            <tr class="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                                <td class="py-4 font-bold text-gray-800">${d.name}</td>
+                                <td class="py-4 text-gray-500 uppercase text-xs font-bold">${d.type} • ${d.plate}</td>
+                                <td class="py-4 font-mono font-bold">${d.id}</td>
+                                <td class="py-4">${statusBadge}</td>
+                                <td class="py-4 text-right">
+                                    <button onclick="generateQR('${d.id}', '${d.plate}', '${d.type}')" class="text-blue-600 font-bold text-xs hover:underline">
+                                        <i class="ri-qr-code-line"></i> QR
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                        tbody.innerHTML += row;
+
+                        // 2. Add to Driver Grid (Fleet View)
+                        const card = `
+                            <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm relative overflow-hidden group">
+                                <div class="absolute top-0 right-0 p-4">
+                                    ${d.status === 'online' ? '<div class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>' : '<div class="w-3 h-3 bg-gray-300 rounded-full"></div>'}
+                                </div>
+                                <div class="flex items-center gap-4 mb-4">
+                                    <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center text-2xl font-bold text-gray-400">
+                                        ${d.name.charAt(0)}
+                                    </div>
+                                    <div>
+                                        <h4 class="font-bold text-lg">${d.name}</h4>
+                                        <p class="text-xs text-gray-500 font-bold uppercase">${d.id}</p>
+                                    </div>
+                                </div>
+                                <div class="bg-gray-50 p-3 rounded-xl flex justify-between items-center mb-4">
+                                    <span class="text-xs font-bold text-gray-500 uppercase">${d.type}</span>
+                                    <span class="font-bold font-mono text-gray-800">${d.plate}</span>
+                                </div>
+                                <button onclick="generateQR('${d.id}', '${d.plate}', '${d.type}')" class="w-full bg-black text-white py-3 rounded-xl font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+                                    Print QR Code
+                                </button>
+                            </div>
+                        `;
+                        grid.innerHTML += card;
+                    });
+                }
+
+                // Update Stats
+                document.getElementById('stat-total-drivers').innerText = totalCount;
+                document.getElementById('stat-active-drivers').innerText = activeCount;
             });
 
-            document.getElementById('disp-plate').innerText = plate;
-            document.getElementById('sticker-preview').classList.remove('hidden');
-            
-            setTimeout(() => window.print(), 500);
+            // Count Rides
+            onValue(ref(db, 'rides'), (snap) => {
+                if(snap.exists()) {
+                    document.getElementById('stat-total-rides').innerText = Object.keys(snap.val()).length;
+                }
+            });
         }
+
+        // --- 2. DRIVER REGISTRATION ---
+        window.registerDriver = () => {
+            const name = document.getElementById('reg-name').value;
+            const phone = document.getElementById('reg-phone').value;
+            const id = document.getElementById('reg-id').value.trim(); // This is the Login ID
+            const type = document.getElementById('reg-type').value;
+            const plate = document.getElementById('reg-plate').value.toUpperCase();
+
+            if(!name || !id || !plate) return alert("Fill required fields!");
+
+            // Save to Firebase
+            set(ref(db, 'drivers/' + id), {
+                id: id,
+                name: name,
+                phone: phone,
+                type: type,
+                plate: plate,
+                status: 'offline', // Default
+                joined: Date.now()
+            }).then(() => {
+                alert("Driver Added Successfully!");
+                closeModal();
+            }).catch(e => alert("Error: " + e.message));
+        };
+
+        // --- 3. QR GENERATION (The Integration Part) ---
+        window.generateQR = (id, plate, type) => {
+            if(!passengerAppUrl) return alert("Please set Passenger App URL in Settings first!");
+            
+            // Link Construction
+            // Formula: URL + ?d_id=ID + &plate=PLATE
+            // Note: We use 'd_id' because Passenger App code expects 'd_id' parameter
+            let link = passengerAppUrl;
+            if(!link.includes('?')) link += '?';
+            else link += '&';
+            
+            link += `d_id=${id}&plate=${plate}&type=${type}`;
+            
+            console.log("Generating QR for:", link);
+
+            // Render Sticker
+            document.getElementById('sticker-qr').innerHTML = "";
+            new QRCode(document.getElementById("sticker-qr"), {
+                text: link,
+                width: 180, height: 180
+            });
+            
+            document.getElementById('sticker-type').innerText = type.toUpperCase();
+            document.getElementById('sticker-plate').innerText = plate;
+            document.getElementById('printable-sticker').classList.remove('hidden');
+        };
+
+        window.closeSticker = () => document.getElementById('printable-sticker').classList.add('hidden');
+
+        // --- 4. SETTINGS ---
+        window.saveConfig = () => {
+            const url = document.getElementById('config-url').value;
+            if(!url.includes('http')) return alert("Enter valid URL (http/https)");
+            localStorage.setItem('zayra_app_url', url);
+            passengerAppUrl = url;
+            alert("Settings Saved!");
+            switchTab('dash');
+        };
+
+        // --- 5. UI TABS ---
+        window.switchTab = (tabId) => {
+            // Hide all
+            ['dash', 'drivers', 'qr', 'settings'].forEach(t => {
+                document.getElementById('view-'+t)?.classList.add('hidden');
+                document.getElementById('tab-'+t)?.classList.remove('active');
+            });
+            // Show selected
+            document.getElementById('view-'+tabId).classList.remove('hidden');
+            document.getElementById('tab-'+tabId).classList.add('active');
+            
+            const titles = { 'dash': 'Dashboard', 'drivers': 'Fleet Manager', 'qr': 'QR Tools', 'settings': 'Settings' };
+            document.getElementById('page-title').innerText = titles[tabId];
+        };
+
+        // Modal Logic
+        window.openModal = () => {
+            document.getElementById('add-modal').classList.remove('hidden');
+            setTimeout(() => document.getElementById('add-modal').classList.add('open'), 10);
+        };
+        window.closeModal = () => {
+            document.getElementById('add-modal').classList.remove('open');
+            setTimeout(() => document.getElementById('add-modal').classList.add('hidden'), 300);
+        };
+
+        // Make functions global for HTML buttons
+        window.switchTab = switchTab;
+        window.openModal = openModal;
+        window.closeModal = closeModal;
+        window.generateQR = generateQR;
+        window.closeSticker = closeSticker;
+        window.saveConfig = saveConfig;
+        window.registerDriver = registerDriver;
     </script>
 </body>
 </html>
